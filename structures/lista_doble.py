@@ -1,3 +1,4 @@
+from models import usuario
 from structures.nodo_usuario import NodoUsuario
 
 class ListaDoble:
@@ -6,6 +7,11 @@ class ListaDoble:
         self.cola = None
 
     def insertar(self, usuario):
+        #Verificar si el ID del usuario ya existe en la lista
+        if self.buscar(usuario.id):
+            print("Ese ID ya existe.")
+            return False
+    
         nuevo_nodo = NodoUsuario(usuario)
 
         #Si la lista está vacía, el nuevo nodo se convierte en la cabeza y la cola
@@ -19,6 +25,7 @@ class ListaDoble:
 
             #Actualizar la cola para que apunte al nuevo nodo
             self.cola = nuevo_nodo 
+        return True
 
     def mostrar(self):
         if self.cabeza is None:
@@ -28,7 +35,7 @@ class ListaDoble:
         nodo_actual = self.cabeza
         #Recorre la lista desde la cabeza hasta la cola y muestra los datos de cada usuario
         while nodo_actual is not None:
-            print(f"ID: {nodo_actual.usuario.id}, Nombre: {nodo_actual.usuario.nombre}")
+            print(f"ID: {nodo_actual.usuario.id}, Nombre: {nodo_actual.usuario.nombre}, Rol: {nodo_actual.usuario.rol}")
             nodo_actual = nodo_actual.siguiente
 
     def buscar(self, id):
@@ -43,14 +50,15 @@ class ListaDoble:
             # Retorna None si no se encuentra el usuario con el ID especificado
         return None  
 
-    def modificar(self, id, nuevo_nombre):
+    def modificar(self, id, nuevo_nombre, nuevo_rol):
         actual = self.cabeza
 
         #Recorre la lista desde la cabeza hasta la cola para buscar un usuario por su ID y modificar su nombre
         while actual is not None:
             if actual.usuario.id == id:
                 actual.usuario.nombre = nuevo_nombre
-
+                actual.usuario.rol = nuevo_rol
+                
                 # Retorna True si se modificó el usuario
                 return True  
             actual = actual.siguiente
