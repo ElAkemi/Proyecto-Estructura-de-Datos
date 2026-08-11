@@ -1,4 +1,3 @@
-from models import usuario
 from structures.nodo_usuario import NodoUsuario
 
 class ListaDoble:
@@ -7,11 +6,6 @@ class ListaDoble:
         self.cola = None
 
     def insertar(self, usuario):
-        #Verificar si el ID del usuario ya existe en la lista
-        if self.buscar(usuario.id):
-            print("Ese ID ya existe.")
-            return False
-    
         nuevo_nodo = NodoUsuario(usuario)
 
         #Si la lista está vacía, el nuevo nodo se convierte en la cabeza y la cola
@@ -51,20 +45,12 @@ class ListaDoble:
         return None  
 
     def modificar(self, id, nuevo_nombre, nuevo_rol):
-        actual = self.cabeza
+        usuario = self.buscar(id)
 
-        #Recorre la lista desde la cabeza hasta la cola para buscar un usuario por su ID y modificar su nombre
-        while actual is not None:
-            if actual.usuario.id == id:
-                actual.usuario.nombre = nuevo_nombre
-                actual.usuario.rol = nuevo_rol
-                
-                # Retorna True si se modificó el usuario
-                return True  
-            actual = actual.siguiente
+        usuario.nombre = nuevo_nombre
+        usuario.rol = nuevo_rol
 
-         # Retorna False si no se encontró el usuario con el ID especificado
-        return False  # Retorna False si no se encontró el usuario con el ID especificado
+        return True
 
     def eliminar(self, id):
         actual = self.cabeza
@@ -80,25 +66,18 @@ class ListaDoble:
                 # Si el nodo a eliminar es la cabeza
                 elif actual == self.cabeza:
                     self.cabeza = actual.siguiente
-                    # Si la nueva cabeza no es None, actualizar su puntero anterior a None
-                    if self.cabeza is not None:
-                        self.cabeza.anterior = None
+                    self.cabeza.anterior = None
 
                 # Si el nodo a eliminar es la cola
                 elif actual == self.cola:
                     self.cola = actual.anterior
-                    # Si la nueva cola no es None, actualizar su puntero siguiente a None
-                    if self.cola is not None:
-                        self.cola.siguiente = None
+                    self.cola.siguiente = None
 
                 else:
                     # Conectar el nodo anterior con el siguiente, eliminando el nodo actual de la lista (esta entre la cabeza y la cola)
                     actual.anterior.siguiente = actual.siguiente
-                    # Si el nodo siguiente no es None, actualizar su puntero anterior
-                    if actual.siguiente is not None:
-                        actual.siguiente.anterior = actual.anterior
-
-                # Retorna True si se eliminó el usuario, como quedo aislado python lo elimina automáticamente de la memoria
+                    actual.siguiente.anterior = actual.anterior
+                # Retorna True si el usuario fue eliminado
                 return True
             actual = actual.siguiente
             # Retorna False si no se encontró el usuario con el ID especificado

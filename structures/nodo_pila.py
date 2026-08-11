@@ -1,4 +1,4 @@
 class NodoPila:
-    def __init__(self, Accion):
-        self.accion = Accion
+    def __init__(self, accion):
+        self.accion = accion
         self.siguiente = None
