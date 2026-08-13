@@ -1,20 +1,18 @@
 """
-Nombre: ColaFIFO
+Nombre: ArbolTareas
 Autor: Valeria Cordero Murillo
 """
 
 from __future__ import annotations
-from typing import Any, Optional, TYPE_CHECKING
-from NodoArbol import NodoArbol, DependenciaNoResueltaError
+from typing import Any, Optional
 
-if TYPE_CHECKING:
-    from Tarea import Tarea
+from NodoArbol import NodoArbol, DependenciaNoResueltaError
+from Models.Tarea import Tarea, ESTADO_HECHA
 
 
 class ArbolTareas:
     def __init__(self, tarea_raiz: Any):
-        from Tarea import Tarea as ClaseTarea
-        if not isinstance(tarea_raiz, ClaseTarea):
+        if not isinstance(tarea_raiz, Tarea):
             raise TypeError("La tarea raíz debe ser una instancia de la clase Tarea.")
         self._raiz: NodoArbol = NodoArbol(tarea_raiz)
 
@@ -66,9 +64,6 @@ class ArbolTareas:
     ) -> bool:
         # Si el nodo actual es el padre, agregar la nueva subtarea como hijo.
         if nodo_actual.id == id_padre:
-            from Tarea import Tarea as ClaseTarea, ESTADO_HECHA
-            if not isinstance(nueva_subtarea, ClaseTarea):
-                raise TypeError("La nueva subtarea debe ser una instancia de la clase Tarea.")
             if nodo_actual.tarea.estado == ESTADO_HECHA:
                 raise ValueError(
                     f"No se puede agregar una subtarea a una tarea ya completada ('{id_padre}')."
@@ -84,9 +79,9 @@ class ArbolTareas:
         return False
 
     def agregar_subtarea(self, id_padre: Any, nueva_subtarea: Any) -> None:
-        from Tarea import Tarea as ClaseTarea
-        if not isinstance(nueva_subtarea, ClaseTarea):
+        if not isinstance(nueva_subtarea, Tarea):
             raise TypeError("La nueva subtarea debe ser una instancia de la clase Tarea.")
+
         id_nueva_tarea = nueva_subtarea.id
         if id_padre == id_nueva_tarea:
             raise ValueError("Una tarea no puede ser subtarea de sí misma (dependencia circular).")
@@ -152,8 +147,8 @@ class ArbolTareas:
 
 
 if __name__ == "__main__":
-    # Auto-prueba para validar el comportamiento de ArbolTareas
-    from Tarea import Tarea, renderizar_kanban, PRIORIDAD_ALTA
+    from Models.Tarea import renderizar_kanban, PRIORIDAD_ALTA
+    from OrdenadorTareas import heap_sort_tareas, extraer_tareas_del_arbol
 
     # Crear tarea raíz
     raiz = Tarea(
@@ -214,7 +209,6 @@ if __name__ == "__main__":
     # --- Lógica de ejecución de tareas ---
     print("Ejecutando flujo de tareas...")
 
-    # Intentar completar 'fase_2' antes que sus hijos (debe fallar)
     try:
         nodo_fase_2 = arbol.buscar_nodo("fase_2")
         if nodo_fase_2:
@@ -235,12 +229,10 @@ if __name__ == "__main__":
     if n_auth:
         n_auth.marcar_como_hecha()
 
-    # Ahora 'backend' puede completarse porque 'auth' está hecha
     n_backend = arbol.buscar_nodo("backend")
     if n_backend:
         n_backend.marcar_como_hecha()
 
-    # Y ahora 'fase_2' puede completarse
     n_fase_2 = arbol.buscar_nodo("fase_2")
     if n_fase_2:
         n_fase_2.marcar_como_hecha()
@@ -249,7 +241,7 @@ if __name__ == "__main__":
     print(renderizar_kanban(arbol))
     print("-" * 30)
 
-    # Eliminar un subárbol completo ('fase_1' que está completada)
+    # Eliminar subárbol 'fase_1'
     print("Eliminando el subárbol 'fase_1'...")
     arbol.eliminar_subarbol("fase_1")
     print("\nÁrbol después de la eliminación:")
@@ -258,19 +250,27 @@ if __name__ == "__main__":
 
     # Validar errores
     try:
-        # Intentar agregar con ID duplicado
         arbol.agregar_subtarea("proyecto_alpha", Tarea(id_tarea="frontend", descripcion="Tarea duplicada"))
     except ValueError as e:
         print(f"Error capturado correctamente: {e}")
 
     try:
-        # Intentar agregar a un padre que no existe
         arbol.agregar_subtarea("fase_3", Tarea(id_tarea="nueva", descripcion="Padre no existe"))
     except ValueError as e:
         print(f"Error capturado correctamente: {e}")
 
     try:
-        # Intentar eliminar la raíz
         arbol.eliminar_subarbol("proyecto_alpha")
     except ValueError as e:
         print(f"Error capturado correctamente: {e}")
+
+    print("-" * 30)
+    print("Probando Heap Sort para ordenar tareas por prioridad...")
+
+    todas_las_tareas = extraer_tareas_del_arbol(arbol)
+    print("\nLista de tareas antes de ordenar:")
+    print([f"'{t.descripcion}' (Prioridad: {t.prioridad})" for t in todas_las_tareas])
+
+    heap_sort_tareas(todas_las_tareas)
+    print("\nLista de tareas después de ordenar con Heap Sort (de mayor a menor prioridad):")
+    print([f"'{t.descripcion}' (Prioridad: {t.prioridad})" for t in todas_las_tareas])

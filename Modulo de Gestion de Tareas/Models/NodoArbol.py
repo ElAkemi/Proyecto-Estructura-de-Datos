@@ -5,7 +5,7 @@ Autor: Valeria Cordero Murillo
 
 from __future__ import annotations
 from typing import Any
-from Tarea import Tarea, ESTADO_EN_PROCESO, ESTADO_HECHA
+from Models.Tarea import Tarea, ESTADO_EN_PROCESO, ESTADO_HECHA
 
 
 class DependenciaNoResueltaError(Exception):
