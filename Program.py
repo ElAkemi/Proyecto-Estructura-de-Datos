@@ -1,48 +1,56 @@
-def menu_principal():
-    while True:
-        print("\n========================================")
-        print("          WORKFLOW MANAGER")
-        print("========================================")
-        print("1. Usuarios")
-        print("2. Tareas")
-        print("3. Kanban")
-        print("0. Salir")
-        print("========================================")
+# =========================================================
+#                  WORKFLOW MANAGER
+# =========================================================
 
-        opcion = input("Seleccione una opción: ")
+# Importamos las funciones que hicimos en CSVManager.py.
+# Estas funciones nos permiten cargar y guardar información.
+from CSVManager import cargar_usuarios
+from CSVManager import guardar_usuarios
+from CSVManager import cargar_tareas
+from CSVManager import guardar_tareas
 
-        if opcion == "1":
-            menu_usuarios()
+# Importamos nuestros tres algoritmos de ordenamiento.
+from Ordenamientos import burbuja
+from Ordenamientos import merge_sort
+from Ordenamientos import quick_sort
 
-        elif opcion == "2":
-            menu_tareas()
 
-        elif opcion == "3":
-            menu_kanban()
+# =========================================================
+#               LISTAS TEMPORALES
+# =========================================================
 
-        elif opcion == "0":
-            print("\nSaliendo del sistema...")
-            break
+# Aquí vamos a guardar temporalmente los usuarios
+# mientras el programa esté funcionando.
+usuarios = []
 
-        else:
-            print("\nOpción inválida. Intente nuevamente.")
+# Aquí vamos a guardar temporalmente las tareas.
+tareas = []
 
+
+# =========================================================
+#                 MENÚ DE USUARIOS
+# =========================================================
 
 def menu_usuarios():
+
+    # El menú se repite hasta seleccionar "Volver".
     while True:
-        print("\n========================================")
-        print("           MENÚ DE USUARIOS")
-        print("========================================")
+
+        print("\n============================")
+        print("     GESTIÓN DE USUARIOS")
+        print("============================")
         print("1. Registrar usuario")
         print("2. Actualizar usuario")
         print("3. Eliminar usuario")
-        print("4. Listar usuarios")
+        print("4. Mostrar usuarios")
         print("5. Buscar usuario por ID")
-        print("6. Permisos y roles")
-        print("0. Volver al menú principal")
-        print("========================================")
+        print("6. Volver")
 
+        # Pedimos al usuario que seleccione una opción.
         opcion = input("Seleccione una opción: ")
+
+        # Estas funciones todavía no están conectadas
+        # porque corresponden al trabajo de José.
 
         if opcion == "1":
             print("\nRegistrar usuario - Pendiente de integrar.")
@@ -54,190 +62,221 @@ def menu_usuarios():
             print("\nEliminar usuario - Pendiente de integrar.")
 
         elif opcion == "4":
-            print("\nLista de usuarios - Pendiente de integrar.")
+            print("\nMostrar usuarios - Pendiente de integrar.")
 
         elif opcion == "5":
-            print("\nBuscar usuario por ID - Pendiente de integrar.")
+            print("\nBuscar usuario - Pendiente de integrar.")
 
+        # Regresamos al menú principal.
         elif opcion == "6":
-            menu_roles()
-
-        elif opcion == "0":
             break
 
+        # Si escribe algo diferente a las opciones anteriores.
         else:
             print("\nOpción inválida. Intente nuevamente.")
 
 
-def menu_roles():
-    while True:
-        print("\n========================================")
-        print("         PERMISOS Y ROLES")
-        print("========================================")
-        print("1. Administrador")
-        print("2. Colaborador regular")
-        print("0. Volver")
-        print("========================================")
-
-        opcion = input("Seleccione una opción: ")
-
-        if opcion == "1":
-            print("\nRol Administrador - Pendiente de integrar.")
-
-        elif opcion == "2":
-            print("\nRol Colaborador regular - Pendiente de integrar.")
-
-        elif opcion == "0":
-            break
-
-        else:
-            print("\nOpción inválida. Intente nuevamente.")
-
+# =========================================================
+#                  MENÚ DE TAREAS
+# =========================================================
 
 def menu_tareas():
+
     while True:
-        print("\n========================================")
-        print("            MENÚ DE TAREAS")
-        print("========================================")
+
+        print("\n============================")
+        print("      GESTIÓN DE TAREAS")
+        print("============================")
         print("1. Crear tarea")
-        print("2. Mostrar tareas")
-        print("3. Asignar prioridad")
-        print("4. Asignar responsable")
-        print("5. Mostrar subtareas")
-        print("0. Volver al menú principal")
-        print("========================================")
+        print("2. Ejecutar tarea")
+        print("3. Mostrar tareas")
+        print("4. Mostrar subtareas")
+        print("5. Volver")
 
         opcion = input("Seleccione una opción: ")
+
+        # Estas opciones todavía quedan pendientes
+        # porque dependen del módulo de Valeria.
 
         if opcion == "1":
             print("\nCrear tarea - Pendiente de integrar.")
 
         elif opcion == "2":
+            print("\nEjecutar tarea - Pendiente de integrar.")
+
+        elif opcion == "3":
             print("\nMostrar tareas - Pendiente de integrar.")
 
-        elif opcion == "3":
-            menu_prioridad()
-
         elif opcion == "4":
-            print("\nAsignar responsable - Pendiente de integrar.")
-            print("Una tarea podrá tener ninguno, uno o varios responsables.")
-
-        elif opcion == "5":
             print("\nMostrar subtareas - Pendiente de integrar.")
 
-        elif opcion == "0":
-            break
-
-        else:
-            print("\nOpción inválida. Intente nuevamente.")
-
-
-def menu_prioridad():
-    while True:
-        print("\n========================================")
-        print("          PRIORIDAD DE TAREA")
-        print("========================================")
-        print("1. Alta")
-        print("2. Media")
-        print("3. Baja")
-        print("4. Mostrar tareas ordenadas por prioridad")
-        print("0. Volver")
-        print("========================================")
-
-        opcion = input("Seleccione una opción: ")
-
-        if opcion == "1":
-            print("\nPrioridad ALTA seleccionada.")
-
-        elif opcion == "2":
-            print("\nPrioridad MEDIA seleccionada.")
-
-        elif opcion == "3":
-            print("\nPrioridad BAJA seleccionada.")
-
-        elif opcion == "4":
-            print("\nOrdenamiento por prioridad - Pendiente de desarrollar.")
-
-        elif opcion == "0":
-            break
-
-        else:
-            print("\nOpción inválida. Intente nuevamente.")
-
-
-def menu_kanban():
-    while True:
-        print("\n========================================")
-        print("              MENÚ KANBAN")
-        print("========================================")
-        print("1. Ver tareas por hacer")
-        print("2. Ver tareas en proceso")
-        print("3. Ver tareas hechas")
-        print("4. Cambiar estado de una tarea")
-        print("5. Deshacer último cambio")
-        print("6. Rehacer último cambio")
-        print("0. Volver al menú principal")
-        print("========================================")
-
-        opcion = input("Seleccione una opción: ")
-
-        if opcion == "1":
-            print("\nTareas POR HACER - Pendiente de integrar.")
-
-        elif opcion == "2":
-            print("\nTareas EN PROCESO - Pendiente de integrar.")
-
-        elif opcion == "3":
-            print("\nTareas HECHAS - Pendiente de integrar.")
-
-        elif opcion == "4":
-            menu_cambiar_estado()
-
+        # Regresamos al menú principal.
         elif opcion == "5":
-            print("\nDeshacer - Pendiente de integrar con la pila.")
-
-        elif opcion == "6":
-            print("\nRehacer - Pendiente de integrar con la pila.")
-
-        elif opcion == "0":
             break
 
         else:
             print("\nOpción inválida. Intente nuevamente.")
 
 
-def menu_cambiar_estado():
+# =========================================================
+#               MENÚ DE ORDENAMIENTOS
+# =========================================================
+
+def menu_ordenamientos():
+
     while True:
-        print("\n========================================")
-        print("        CAMBIAR ESTADO DE TAREA")
-        print("========================================")
-        print("1. Por hacer")
-        print("2. En proceso")
-        print("3. Hecha")
-        print("0. Cancelar")
-        print("========================================")
 
-        opcion = input("Seleccione el nuevo estado: ")
+        print("\n============================")
+        print("       ORDENAMIENTOS")
+        print("============================")
+        print("1. Burbuja")
+        print("2. Merge Sort")
+        print("3. Quick Sort")
+        print("4. Volver")
 
+        opcion = input("Seleccione una opción: ")
+
+        # Antes de ordenar comprobamos que existan tareas.
+        if opcion != "4" and len(tareas) == 0:
+
+            print("\nNo hay tareas para ordenar.")
+
+            # Volvemos al inicio del menú.
+            continue
+
+        # Ordenamiento Burbuja.
         if opcion == "1":
-            print("\nNuevo estado: POR HACER")
-            break
 
+            resultado = burbuja(tareas)
+
+            print("\nResultado:")
+            print(resultado)
+
+        # Ordenamiento Merge Sort.
         elif opcion == "2":
-            print("\nNuevo estado: EN PROCESO")
-            break
 
+            resultado = merge_sort(tareas)
+
+            print("\nResultado:")
+            print(resultado)
+
+        # Ordenamiento Quick Sort.
         elif opcion == "3":
-            print("\nNuevo estado: HECHA")
-            break
 
-        elif opcion == "0":
-            print("\nCambio cancelado.")
+            resultado = quick_sort(tareas)
+
+            print("\nResultado:")
+            print(resultado)
+
+        # Regresamos al menú principal.
+        elif opcion == "4":
             break
 
         else:
             print("\nOpción inválida. Intente nuevamente.")
 
 
-if __name__ == "__main__":
-    menu_principal()
+# =========================================================
+#                   CARGAR DATOS
+# =========================================================
+
+def cargar_datos():
+
+    # Indicamos que queremos utilizar las listas
+    # que fueron creadas al inicio del programa.
+    global usuarios
+    global tareas
+
+    # Leemos los usuarios desde usuarios.csv.
+    usuarios = cargar_usuarios()
+
+    # Leemos las tareas desde tareas.csv.
+    tareas = cargar_tareas()
+
+    print("\nDatos cargados correctamente.")
+
+    # Mostramos cuántos datos fueron encontrados.
+    print("Usuarios cargados:", len(usuarios))
+    print("Tareas cargadas:", len(tareas))
+
+
+# =========================================================
+#                   GUARDAR DATOS
+# =========================================================
+
+def guardar_datos():
+
+    # Guardamos los usuarios actuales.
+    guardar_usuarios(usuarios)
+
+    # Guardamos las tareas actuales.
+    guardar_tareas(tareas)
+
+    print("\nDatos guardados correctamente.")
+
+
+# =========================================================
+#                    MENÚ PRINCIPAL
+# =========================================================
+
+def menu_principal():
+
+    # Este ciclo mantiene funcionando el programa
+    # hasta que el usuario seleccione "Salir".
+    while True:
+
+        print("\n================================")
+        print("        WORKFLOW MANAGER")
+        print("================================")
+        print("1. Gestión de usuarios")
+        print("2. Gestión de tareas")
+        print("3. Ordenamientos")
+        print("4. Cargar datos")
+        print("5. Guardar datos")
+        print("6. Salir")
+
+        opcion = input("Seleccione una opción: ")
+
+        # Abrimos el menú de usuarios.
+        if opcion == "1":
+
+            menu_usuarios()
+
+        # Abrimos el menú de tareas.
+        elif opcion == "2":
+
+            menu_tareas()
+
+        # Abrimos nuestro menú de ordenamientos.
+        elif opcion == "3":
+
+            menu_ordenamientos()
+
+        # Cargamos la información de los CSV.
+        elif opcion == "4":
+
+            cargar_datos()
+
+        # Guardamos la información en los CSV.
+        elif opcion == "5":
+
+            guardar_datos()
+
+        # Terminamos el programa.
+        elif opcion == "6":
+
+            print("\nPrograma finalizado.")
+            break
+
+        # Evitamos que una opción incorrecta cierre el programa.
+        else:
+
+            print("\nOpción inválida. Intente nuevamente.")
+
+
+# =========================================================
+#                   INICIO DEL PROGRAMA
+# =========================================================
+
+# Esta línea inicia nuestro programa.
+menu_principal()
