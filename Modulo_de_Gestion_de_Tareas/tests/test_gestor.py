@@ -30,16 +30,20 @@ class TestGestorTareas(unittest.TestCase):
         Crea un gestor de tareas nuevo y define una ruta para un CSV de prueba.
         """
         self.ruta_csv_prueba = "test_tareas.csv"
-        self.gestor = GestorTareas(ruta_csv=self.ruta_csv_prueba)
+        self.ruta_auditoria_prueba = "test_auditoria_log.csv"
+        self.gestor = GestorTareas(ruta_csv=self.ruta_csv_prueba, ruta_log_auditoria=self.ruta_auditoria_prueba)
 
     def tearDown(self):
         """
         Limpieza después de cada prueba.
         Se ejecuta después de cada método de prueba.
-        Elimina el archivo CSV de prueba si existe para no dejar basura.
+        Elimina los archivos CSV de prueba si existen para no dejar basura.
         """
         if os.path.exists(self.ruta_csv_prueba):
             os.remove(self.ruta_csv_prueba)
+        if os.path.exists(self.ruta_auditoria_prueba):
+            os.remove(self.ruta_auditoria_prueba)
+
 
     def test_crear_tarea(self):
         """
@@ -217,6 +221,82 @@ class TestGestorTareas(unittest.TestCase):
         
         # Comprobar subtarea
         self.assertIsNotNone(nuevo_gestor.arboles_subtareas[1].buscar_nodo(10))
+
+    def test_prevencion_inanicion_escalamiento(self):
+        """
+        Prueba la regla de negocio de prevención de inanición (starvation prevention).
+        Verifica que al saturar la cola urgente, una tarea en la cola regular acumule ciclos de espera
+        y al alcanzar el límite configurado (max_ciclos_espera=3) sea escalada automáticamente a la cola urgente.
+        """
+        gestor_anti_inanicion = GestorTareas(ruta_csv=self.ruta_csv_prueba, max_ciclos_espera=3)
+
+        # 1. Crear 1 tarea regular y 3 tareas urgentes
+        gestor_anti_inanicion.crear_tarea(1, "NORMAL", 100, "Tarea Regular Olvidada", auto_guardar=False)
+        gestor_anti_inanicion.crear_tarea(2, "ALTA", 101, "Urgente A", auto_guardar=False)
+        gestor_anti_inanicion.crear_tarea(3, "ALTA", 102, "Urgente B", auto_guardar=False)
+        gestor_anti_inanicion.crear_tarea(4, "ALTA", 103, "Urgente C", auto_guardar=False)
+
+        # La tarea regular 1 está inicialmente en la cola regular
+        self.assertFalse(gestor_anti_inanicion.cola_regular.esta_vacia())
+        tarea_1 = gestor_anti_inanicion.buscar_tarea(1)
+        self.assertEqual(tarea_1.ciclos_espera, 0)
+
+        # 2. Procesar primera urgente (Urgente A). Tarea 1 acumula 1 ciclo de espera
+        p1 = gestor_anti_inanicion.procesar_siguiente()
+        self.assertEqual(p1.id_tarea, 2)
+        self.assertEqual(tarea_1.ciclos_espera, 1)
+
+        # 3. Procesar segunda urgente (Urgente B). Tarea 1 acumula 2 ciclos de espera
+        p2 = gestor_anti_inanicion.procesar_siguiente()
+        self.assertEqual(p2.id_tarea, 3)
+        self.assertEqual(tarea_1.ciclos_espera, 2)
+
+        # 4. Procesar tercera urgente (Urgente C). Tarea 1 alcanza 3 ciclos de espera
+        # y debe ser promovida automáticamente a la cola urgente
+        p3 = gestor_anti_inanicion.procesar_siguiente()
+        self.assertEqual(p3.id_tarea, 4)
+        self.assertEqual(tarea_1.ciclos_espera, 3)
+        self.assertEqual(tarea_1.prioridad, Prioridad.ALTA)
+        self.assertTrue(gestor_anti_inanicion.cola_regular.esta_vacia())
+
+        # 5. La siguiente tarea a procesar debe ser Tarea 1 (escalada a la cola urgente)
+        p4 = gestor_anti_inanicion.procesar_siguiente()
+        self.assertEqual(p4.id_tarea, 1)
+
+    def test_auditoria_log_y_deshacer_rehacer(self):
+        """
+        Prueba la generación de la bitácora inmutable (auditoria_log.csv)
+        y la pila de Deshacer / Rehacer.
+        """
+        # 1. Crear tarea y cambiar estado
+        self.gestor.crear_tarea(50, "NORMAL", 200, "Tarea para Auditoría", auto_guardar=False)
+        self.assertTrue(self.gestor.cambiar_estado_tarea(50, "Completada", id_usuario_solicitante=200, auto_guardar=False))
+        self.assertEqual(self.gestor.buscar_tarea(50).estado, "Completada")
+
+        # 2. Ejecutar Deshacer (Stack LIFO)
+        self.assertTrue(self.gestor.deshacer(id_usuario_ejecutor=200))
+        self.assertEqual(self.gestor.buscar_tarea(50).estado, "Pendiente")
+
+        # 3. Ejecutar Rehacer (Stack LIFO)
+        self.assertTrue(self.gestor.rehacer(id_usuario_ejecutor=200))
+        self.assertEqual(self.gestor.buscar_tarea(50).estado, "Completada")
+
+        # 4. Verificar que se creó el archivo auditoria_log.csv inmutable con el formato exacto
+        self.assertTrue(os.path.exists(self.ruta_auditoria_prueba))
+        with open(self.ruta_auditoria_prueba, "r", encoding="utf-8") as f:
+            lineas = f.readlines()
+
+        self.assertGreaterEqual(len(lineas), 3)
+        # Formato esperado: [Fecha y Hora] | [ID Usuario que ejecutó] | [Acción Realizada] | [ID Tarea Afectada]
+        for linea in lineas:
+            partes = [p.strip() for p in linea.split("|")]
+            self.assertEqual(len(partes), 4)
+
+        self.assertIn("Cambio de Estado", lineas[0])
+        self.assertIn("Deshacer", lineas[1])
+        self.assertIn("Rehacer", lineas[2])
+
+
 
 if __name__ == '__main__':
     """

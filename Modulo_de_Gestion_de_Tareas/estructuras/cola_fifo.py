@@ -161,6 +161,51 @@ class ColaFIFO:
         # Si terminó todo el bucle sin coincidencias, retorna False
         return False
 
+    def incrementar_ciclos_y_extraer_escaladas(self, max_ciclos: int) -> list:
+        """
+        Incrementa el contador de ciclos de espera de todas las tareas en la cola regular.
+        Aquellas tareas que alcancen o superen max_ciclos son removidas de la cola
+        y retornadas en una lista para su posterior escalamiento a la cola urgente.
+        """
+        escaladas = []
+        if self.esta_vacia():
+            return escaladas
+
+        actual = self._frente
+        previo = None
+
+        while actual:
+            tarea = actual.dato
+            # Incrementar ciclos de espera si la tarea cuenta con el método/atributo
+            if hasattr(tarea, "incrementar_ciclo_espera"):
+                tarea.incrementar_ciclo_espera()
+            elif hasattr(tarea, "ciclos_espera"):
+                tarea.ciclos_espera += 1
+
+            ciclos = getattr(tarea, "ciclos_espera", 0)
+
+            # Verificar si la tarea superó el límite de espera para escalar
+            if ciclos >= max_ciclos:
+                escaladas.append(tarea)
+                # Remover de la lista enlazada
+                if previo is None:
+                    # Es el frente
+                    self._frente = actual.siguiente
+                    if self._frente is None:
+                        self._final = None
+                else:
+                    previo.siguiente = actual.siguiente
+                    if actual == self._final:
+                        self._final = previo
+
+                self._tamano -= 1
+                actual = actual.siguiente
+            else:
+                previo = actual
+                actual = actual.siguiente
+
+        return escaladas
+
     def __len__(self):
         # Retorna el entero que almacena el conteo actual de elementos
         return self._tamano

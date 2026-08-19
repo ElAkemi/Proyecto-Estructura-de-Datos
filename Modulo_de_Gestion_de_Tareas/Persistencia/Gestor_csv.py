@@ -94,3 +94,26 @@ class GestorCSV:
             escritor.writerows(filas) # Escribe en bloque de filas generadas.
 
         return True
+
+class AuditoriaLogger:
+    """
+    Gestiona la bitácora inmutable de auditoría (auditoria_log.csv).
+    Solo permite agregar líneas (modo append) en formato:
+    [Fecha y Hora] | [ID Usuario que ejecutó] | [Acción Realizada] | [ID Tarea Afectada]
+    """
+    @staticmethod
+    def registrar_evento(ruta_log: str, id_usuario, accion: str, id_tarea):
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        usuario_str = str(id_usuario) if id_usuario is not None else "SISTEMA"
+        tarea_str = str(id_tarea) if id_tarea is not None else "N/A"
+        linea = f"{timestamp} | {usuario_str} | {accion} | {tarea_str}\n"
+
+        directorio = os.path.dirname(ruta_log)
+        if directorio and not os.path.exists(directorio):
+            os.makedirs(directorio, exist_ok=True)
+
+        # Abre en modo 'a' (append) para garantizar la inmutabilidad de los registros previos
+        with open(ruta_log, mode='a', encoding='utf-8') as archivo:
+            archivo.write(linea)
+

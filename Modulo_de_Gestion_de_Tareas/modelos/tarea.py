@@ -1,15 +1,21 @@
 try:
     from .Prioridad import Prioridad
 except (ImportError, ValueError):
-    from .Prioridad import Prioridad
+    from Models.Prioridad import Prioridad
+
 class Tarea:
-    def __init__(self, id_tarea: int, descripcion: str, prioridad: Prioridad, id_usuario: int, completada: bool = False):
+    def __init__(self, id_tarea: int, descripcion: str, prioridad: Prioridad, id_usuario: int, completada: bool = False, ciclos_espera: int = 0):
         self.id_tarea = int(id_tarea) # Conversión a entero para garantizar que el ID sea numérico.
         self.descripcion = str(descripcion) # Asegura que la descripción se almacene como texto.
         # Si prioridad ya es un objeto de tipo Prioridad, lo asigna directamente; de lo contrario, usa el método de conversión Prioridad.desde_texto(...) para transformar una cadena.
         self.prioridad = Prioridad.desde_texto(prioridad) if not isinstance(prioridad, Prioridad) else prioridad
         self.id_usuario = int(id_usuario) # Asigna el ID del usuario responsable asegurando tipo entero.
         self.completada = bool(completada) # Booleano que rastrea el estado de avance de la tarea.
+        self.ciclos_espera = int(ciclos_espera) # Contador de ciclos de espera para prevenir la inanición (starvation).
+
+    def incrementar_ciclo_espera(self):
+        self.ciclos_espera += 1
+
 
     @property # Permite acceder al atributo tarea.estado.
     def estado(self) -> str:
