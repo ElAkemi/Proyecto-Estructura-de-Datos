@@ -1,6 +1,5 @@
 """Módulo para la gestión principal de tareas, colas y auditoría."""
 
-from estructuras.arbol_tareas import ArbolTareas
 from estructuras.cola_fifo import ColaFIFO
 from estructuras.cola_prioridad import ColaPrioridad
 from estructuras.pila import Pila
@@ -9,95 +8,96 @@ from modelos.prioridad import Prioridad
 from modelos.tarea import Tarea
 from persistencia.gestor_csv import AuditoriaLogger, GestorCSV
 
-
 class GestorTareas:
-    # Constructor de __init__ y Auxiliar de guardado.
-    def __init__(self, ruta_csv: str = "tareas.csv", max_ciclos_espera: int = 3, ruta_log_auditoria: str = "auditoria_log.csv"):
-        self.cola_regular = ColaFIFO() # Tareas no urgentes
-        self.cola_urgente = ColaPrioridad() # Tareas urgentes
-        self.arboles_subtareas = {} # Relaciona el id_tarea con la raíz de un árbol donde se gestionan las subtareas dependientes.
-        self.ruta_csv = ruta_csv # Establece el archivo de alamccenamiento.
-        self.max_ciclos_espera = int(max_ciclos_espera) # Límite de ciclos de espera antes de promover a cola urgente para evitar inanición.
-        self.ruta_log_auditoria = ruta_log_auditoria # Archivo de bitácora inmutable (auditoria_log.csv)
-        self.pila_deshacer = Pila() # Pila para función Deshacer
-        self.pila_rehacer = Pila() # Pila para función Rehacer
+    """Clase principal para la gestión de tareas, colas y persistencia."""
+
+    def __init__(
+        self,
+        ruta_csv: str = "tareas.csv",
+        max_ciclos_espera: int = 3,
+        ruta_log_auditoria: str = "auditoria_log.csv"
+    ):
+        """Inicializa las estructuras principales del gestor."""
+        self.cola_regular = ColaFIFO()
+        self.cola_urgente = ColaPrioridad()
+        self.arboles_subtareas = {}
+        self.ruta_csv = ruta_csv
+        self.max_ciclos_espera = int(max_ciclos_espera)
+        self.ruta_log_auditoria = ruta_log_auditoria
+        self.pila_deshacer = Pila()
+        self.pila_rehacer = Pila()
 
     def registrar_auditoria(self, id_usuario, accion: str, id_tarea):
         """Registra una nueva línea en la bitácora inmutable auditoria_log.csv."""
         if self.ruta_log_auditoria:
             try:
-                try:
-                    from ..Persistencia.Gestor_csv import AuditoriaLogger
-                except (ImportError, ValueError):
-                    from Persistencia.Gestor_csv import AuditoriaLogger
-                AuditoriaLogger.registrar_evento(self.ruta_log_auditoria, id_usuario, accion, id_tarea)
+                AuditoriaLogger.registrar_evento(
+                    self.ruta_log_auditoria, id_usuario, accion, id_tarea
+                )
             except Exception as e:
                 print(f"Advertencia: No se pudo registrar auditoría: {e}")
 
-
-
-    """
-    Evalua si auto_guardar es True e importa GestorCSV y guarda el estado actual 
-    para no perder informacion, a la vez que captura cualquier error. 
-    """
     def _guardar_si_es_necesario(self, auto_guardar: bool):
+        """Guarda el estado actual si auto_guardar es True y hay una ruta definida."""
         if auto_guardar and self.ruta_csv:
             try:
-                try:
-                    from ..Persistencia.Gestor_csv import GestorCSV
-                except (ImportError, ValueError):
-                    from Persistencia.Gestor_csv import GestorCSV
                 GestorCSV.guardar_en_csv(self.ruta_csv, self)
             except Exception as e:
                 print(f"Advertencia: No se pudo guardar la información en CSV: {e}")
 
-        """
-        Convierte el ID a entero y realiza una búsqueda secuencial primero
-        en la cola urgente; si no la encuentra, busca en la cola regular.
-        """
     def buscar_tarea(self, id_tarea: int) -> Tarea:
+        """Realiza una búsqueda secuencial primero en la cola urgente y luego en la regular."""
         id_tarea = int(id_tarea)
-        # Buscar en cola urgente
         tarea = self.cola_urgente.buscar_por_id(id_tarea)
         if tarea:
             return tarea
-        # Buscar en cola regular
         return self.cola_regular.buscar_por_id(id_tarea)
 
-        """
-        Une las listas de ambas colas urgentes 
-        primero, para entregar el catálogo completo de tareas.
-        """
     def obtener_todas_tareas(self) -> list:
-        # Devuelve la combinación de urgente + regular
+        """Entrega el catálogo completo de tareas (urgentes + regulares)."""
         return self.cola_urgente.obtener_lista() + self.cola_regular.obtener_lista()
 
-    def crear_tarea(self, id_tarea: int, prioridad_str: str, id_usuario: int, descripcion: str, completada: bool = False, auto_guardar: bool = True) -> Tarea:
+    def crear_tarea(
+        self,
+        id_tarea: int,
+        prioridad_str: str,
+        id_usuario: int,
+        descripcion: str,
+        completada: bool = False,
+        auto_guardar: bool = True
+    ) -> Tarea:
+        """Crea una nueva tarea, la asigna a la cola correspondiente e inicializa su árbol."""
         id_tarea = int(id_tarea)
-        
-        # Validar duplicados
+
         if self.buscar_tarea(id_tarea) is not None or id_tarea in self.arboles_subtareas:
             raise ValueError(f"Ya existe una tarea registrada con el ID {id_tarea}.")
 
-        # Asigna la tarea a la cola urgente, caso contrario a la regular.
         prioridad = Prioridad.desde_texto(prioridad_str)
-        nueva_tarea = Tarea(id_tarea, descripcion, prioridad, id_usuario, completada=completada)
-        
+        nueva_tarea = Tarea(
+            id_tarea, descripcion, prioridad, id_usuario, completada=completada
+        )
+
         if prioridad == Prioridad.ALTA:
             self.cola_urgente.encolar(nueva_tarea)
         else:
             self.cola_regular.encolar(nueva_tarea)
 
-        # Inicializa la raíz del árbol de subtareas
-        self.arboles_subtareas[id_tarea] = NodoArbolTarea(id_tarea, descripcion, completada=completada)
+        self.arboles_subtareas[id_tarea] = NodoArbolTarea(
+            id_tarea, descripcion, completada=completada
+        )
 
-        # Guarda automaticamente la informacion.
         self._guardar_si_es_necesario(auto_guardar)
         return nueva_tarea
 
-
-    # Permite actualizar la descripcion en la tarea y su nodo raiz, asignacion de usuario y prioridad.
-    def actualizar_tarea(self, id_tarea: int, nueva_descripcion: str = None, nueva_prioridad_str: str = None, nuevo_id_usuario: int = None, auto_guardar: bool = True) -> bool:
+    def actualizar_tarea(
+        self,
+        id_tarea: int,
+        nueva_descripcion: str = None,
+        nueva_prioridad_str: str = None,
+        nuevo_id_usuario: int = None,
+        auto_guardar: bool = True
+    ) -> bool:
+        """Actualiza la descripción, usuario o prioridad de una tarea existente."""
         tarea = self.buscar_tarea(id_tarea)
         if not tarea:
             return False
@@ -110,11 +110,9 @@ class GestorTareas:
         if nuevo_id_usuario is not None:
             tarea.id_usuario = int(nuevo_id_usuario)
 
-        # Si la prioridad cambia, la remueve de la cola anterior y la inserta en la nueva.
         if nueva_prioridad_str:
             nueva_prio = Prioridad.desde_texto(nueva_prioridad_str)
             if nueva_prio != tarea.prioridad:
-                # Re-encolar si cambia de cola urgente/regular
                 self.cola_urgente.eliminar_por_id(id_tarea)
                 self.cola_regular.eliminar_por_id(id_tarea)
                 tarea.prioridad = nueva_prio
@@ -126,12 +124,12 @@ class GestorTareas:
         self._guardar_si_es_necesario(auto_guardar)
         return True
 
-    # Elimina el registro de la tarea de ambas colas y borra de memoria su subarbol.
     def eliminar_tarea(self, id_tarea: int, auto_guardar: bool = True) -> bool:
+        """Elimina el registro de la tarea de las colas y borra su subárbol."""
         id_tarea = int(id_tarea)
         eliminado_urgente = self.cola_urgente.eliminar_por_id(id_tarea)
         eliminado_regular = self.cola_regular.eliminar_por_id(id_tarea)
-        
+
         if id_tarea in self.arboles_subtareas:
             del self.arboles_subtareas[id_tarea]
 
@@ -140,18 +138,26 @@ class GestorTareas:
             self._guardar_si_es_necesario(auto_guardar)
         return exito
 
-    def agregar_subtarea(self, id_subtarea: int, id_padre: int, descripcion: str, completada: bool = False, auto_guardar: bool = True) -> bool:
+    def agregar_subtarea(
+        self,
+        id_subtarea: int,
+        id_padre: int,
+        descripcion: str,
+        completada: bool = False,
+        auto_guardar: bool = True
+    ) -> bool:
+        """Agrega una subtarea buscando al padre en las raíces o de forma recursiva."""
         id_subtarea = int(id_subtarea)
         id_padre = int(id_padre)
 
-        # Buscar en las raíces de los árboles de subtareas
         if id_padre in self.arboles_subtareas:
-            exito = self.arboles_subtareas[id_padre].agregar_subtarea(id_padre, id_subtarea, descripcion, completada)
+            exito = self.arboles_subtareas[id_padre].agregar_subtarea(
+                id_padre, id_subtarea, descripcion, completada
+            )
             if exito:
                 self._guardar_si_es_necesario(auto_guardar)
             return exito
-        
-        # Buscar recursivamente en todas las subtareas existentes
+
         for raiz in self.arboles_subtareas.values():
             if raiz.agregar_subtarea(id_padre, id_subtarea, descripcion, completada):
                 self._guardar_si_es_necesario(auto_guardar)
@@ -159,66 +165,83 @@ class GestorTareas:
         return False
 
     def _aplicar_escalamiento_por_inanicion(self):
-        """
-        Incrementa los ciclos de espera de las tareas en la cola regular
-        y promueve a la cola urgente a aquellas que alcancen max_ciclos_espera.
-        """
-        escaladas = self.cola_regular.incrementar_ciclos_y_extraer_escaladas(self.max_ciclos_espera)
+        """Promueve a la cola urgente las tareas regulares que superen max_ciclos_espera."""
+        escaladas = self.cola_regular.incrementar_ciclos_y_extraer_escaladas(
+            self.max_ciclos_espera
+        )
         for tarea in escaladas:
             tarea.prioridad = Prioridad.ALTA
             self.cola_urgente.encolar(tarea)
-            self.registrar_auditoria("SISTEMA", f"Escalamiento por SLA a Cola Urgente (Ciclos={tarea.ciclos_espera})", tarea.id_tarea)
-            print(f"⚡ Escalamiento Automático (Anti-Inanición): La tarea ID={tarea.id_tarea} ('{tarea.descripcion}') superó {tarea.ciclos_espera} ciclos de espera y fue promovida a la Cola Urgente.")
-
+            self.registrar_auditoria(
+                "SISTEMA",
+                f"Escalamiento por SLA a Cola Urgente (Ciclos={tarea.ciclos_espera})",
+                tarea.id_tarea
+            )
+            print(
+                f"⚡ Escalamiento Automático (Anti-Inanición): La tarea ID={tarea.id_tarea} "
+                f"('{tarea.descripcion}') superó {tarea.ciclos_espera} ciclos de espera "
+                "y fue promovida a la Cola Urgente."
+            )
 
     def procesar_siguiente(self) -> Tarea:
+        """Procesa la siguiente tarea en orden de prioridad e incrementa ciclos de espera."""
         tarea_procesada = None
-        # Desencola primero las tareas urgentes
         if not self.cola_urgente.esta_vacia():
             tarea_procesada = self.cola_urgente.desencolar()
-        # Si la cola urgente está vacía, atiende la cola regular
         elif not self.cola_regular.esta_vacia():
             tarea_procesada = self.cola_regular.desencolar()
 
         if tarea_procesada is not None:
-            # Aplica el incremento de ciclos de espera y el escalamiento por inanición a las tareas restantes en la cola regular
             self._aplicar_escalamiento_por_inanicion()
             self._guardar_si_es_necesario(True)
 
         return tarea_procesada
 
-
-    # Filtra tareas activas no completadas
     def listar_pendientes(self) -> list:
+        """Filtra y retorna las tareas que aún no han sido completadas."""
         todas = self.obtener_todas_tareas()
         return [t for t in todas if not t.completada]
 
-    # Filta asociadas a un ID de usuario
     def listar_por_usuario(self, id_usuario: int) -> list:
+        """Filtra y retorna las tareas asociadas a un ID de usuario específico."""
         id_usuario = int(id_usuario)
         todas = self.obtener_todas_tareas()
         return [t for t in todas if t.id_usuario == id_usuario]
 
-    # Verifica que el cambio viene de un usuario administrador o usuario responsable.
-    def cambiar_estado_tarea(self, id_tarea: int, nuevo_estado: str, id_usuario_solicitante: int = None, es_admin: bool = False, auto_guardar: bool = True) -> bool:
+    def cambiar_estado_tarea(
+        self,
+        id_tarea: int,
+        nuevo_estado: str,
+        id_usuario_solicitante: int = None,
+        es_admin: bool = False,
+        auto_guardar: bool = True
+    ) -> bool:
+        """Cambia el estado de una tarea validando permisos y apilando la acción."""
         tarea = self.buscar_tarea(id_tarea)
         if not tarea:
             return False
 
-        # Validación de permisos: un usuario normal sólo modifica sus propias tareas asignadas
         if not es_admin and id_usuario_solicitante is not None:
             if tarea.id_usuario != int(id_usuario_solicitante):
-                raise PermissionError("No tiene permisos para modificar una tarea asignada a otro usuario.")
+                raise PermissionError(
+                    "No tiene permisos para modificar una tarea asignada a otro usuario."
+                )
 
         estado_anterior = tarea.estado
         tarea.estado = nuevo_estado
 
-        usr_ejecutor = id_usuario_solicitante if id_usuario_solicitante is not None else (0 if es_admin else tarea.id_usuario)
+        usr_ejecutor = (
+            id_usuario_solicitante
+            if id_usuario_solicitante is not None
+            else (0 if es_admin else tarea.id_usuario)
+        )
 
-        # Registrar en la bitácora inmutable de auditoría (auditoria_log.csv)
-        self.registrar_auditoria(usr_ejecutor, f"Cambio de Estado de '{estado_anterior}' a '{nuevo_estado}'", id_tarea)
+        self.registrar_auditoria(
+            usr_ejecutor,
+            f"Cambio de Estado de '{estado_anterior}' a '{nuevo_estado}'",
+            id_tarea
+        )
 
-        # Guardar acción en la Pila de Deshacer
         def _deshacer_cambio_estado():
             t = self.buscar_tarea(id_tarea)
             if t:
@@ -241,8 +264,8 @@ class GestorTareas:
         self._guardar_si_es_necesario(auto_guardar)
         return True
 
-    def deshacer(self, id_usuario_ejecutor = "SISTEMA") -> bool:
-        """Deshace la última acción registrada en la Pila de Deshacer y escribe en auditoria_log.csv."""
+    def deshacer(self, id_usuario_ejecutor="SISTEMA") -> bool:
+        """Deshace la última acción registrada en la Pila de Deshacer."""
         if self.pila_deshacer.esta_vacia():
             return False
 
@@ -250,13 +273,19 @@ class GestorTareas:
         evento["undo"]()
         self.pila_rehacer.apilar(evento)
 
-        usr = id_usuario_ejecutor if id_usuario_ejecutor != "SISTEMA" else evento.get("id_usuario", "SISTEMA")
-        self.registrar_auditoria(usr, f"Deshacer: {evento['descripcion']}", evento["id_tarea"])
+        usr = (
+            id_usuario_ejecutor
+            if id_usuario_ejecutor != "SISTEMA"
+            else evento.get("id_usuario", "SISTEMA")
+        )
+        self.registrar_auditoria(
+            usr, f"Deshacer: {evento['descripcion']}", evento["id_tarea"]
+        )
         self._guardar_si_es_necesario(True)
         return True
 
-    def rehacer(self, id_usuario_ejecutor = "SISTEMA") -> bool:
-        """Rehace la última acción deshecha de la Pila de Rehacer y escribe en auditoria_log.csv."""
+    def rehacer(self, id_usuario_ejecutor="SISTEMA") -> bool:
+        """Rehace la última acción deshecha de la Pila de Rehacer."""
         if self.pila_rehacer.esta_vacia():
             return False
 
@@ -264,13 +293,18 @@ class GestorTareas:
         evento["accion"]()
         self.pila_deshacer.apilar(evento)
 
-        usr = id_usuario_ejecutor if id_usuario_ejecutor != "SISTEMA" else evento.get("id_usuario", "SISTEMA")
-        self.registrar_auditoria(usr, f"Rehacer: {evento['descripcion']}", evento["id_tarea"])
+        usr = (
+            id_usuario_ejecutor
+            if id_usuario_ejecutor != "SISTEMA"
+            else evento.get("id_usuario", "SISTEMA")
+        )
+        self.registrar_auditoria(
+            usr, f"Rehacer: {evento['descripcion']}", evento["id_tarea"]
+        )
         self._guardar_si_es_necesario(True)
         return True
 
-
-def cargar_csv(self, ruta_csv: str = None) -> bool:
+    def cargar_csv(self, ruta_csv: str = None) -> bool:
         """Carga el estado de las tareas desde un archivo CSV."""
         ruta = ruta_csv or self.ruta_csv
         if not ruta:
@@ -279,7 +313,7 @@ def cargar_csv(self, ruta_csv: str = None) -> bool:
         self.ruta_csv = ruta
         return GestorCSV.cargar_desde_csv(ruta, self)
 
-def guardar_csv(self, ruta_csv: str = None) -> bool:
+    def guardar_csv(self, ruta_csv: str = None) -> bool:
         """Guarda el estado actual de las tareas en un archivo CSV."""
         ruta = ruta_csv or self.ruta_csv
         if not ruta:
@@ -287,3 +321,4 @@ def guardar_csv(self, ruta_csv: str = None) -> bool:
 
         self.ruta_csv = ruta
         return GestorCSV.guardar_en_csv(ruta, self)
+    
