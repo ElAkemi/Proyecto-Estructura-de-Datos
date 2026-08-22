@@ -1,92 +1,123 @@
-# Importamos csv para poder trabajar con archivos .csv
+# =========================================================
+#                    CSVMANAGER.PY
+# =========================================================
+
+# Importamos csv para trabajar con archivos CSV.
 import csv
 
-# Importamos os para comprobar si un archivo existe
+# Importamos os para comprobar si existen archivos.
 import os
+
+# Importamos datetime para obtener
+# la fecha y hora actual.
+from datetime import datetime
 
 
 # =========================================================
-# GUARDAR USUARIOS
+#                  GUARDAR USUARIOS
 # =========================================================
 
 def guardar_usuarios(usuarios):
 
-    # Abrimos el archivo donde vamos a guardar los usuarios.
-    # "w" significa que vamos a escribir en el archivo.
-    archivo = open("usuarios.csv", "w", newline="", encoding="utf-8")
+    # Abrimos usuarios.csv en modo escritura.
+    archivo = open(
+        "usuarios.csv",
+        "w",
+        newline="",
+        encoding="utf-8"
+    )
 
     # Creamos el escritor del CSV.
     escritor = csv.writer(archivo)
 
-    # Escribimos los títulos de las columnas.
-    escritor.writerow(["id", "nombre"])
+    # Escribimos los títulos.
+    escritor.writerow([
+        "id",
+        "nombre"
+    ])
 
-    # Recorremos todos los usuarios.
+    # Recorremos los usuarios.
     for usuario in usuarios:
 
-        # Guardamos cada usuario en una fila.
-        escritor.writerow([
-            usuario["id"],
-            usuario["nombre"]
-        ])
+        # Si estamos utilizando diccionarios.
+        if isinstance(usuario, dict):
 
-    # Cerramos el archivo cuando terminamos.
+            escritor.writerow([
+                usuario.get("id", ""),
+                usuario.get("nombre", "")
+            ])
+
+        # Si José utiliza objetos Usuario,
+        # intentamos obtener sus atributos.
+        else:
+
+            escritor.writerow([
+                getattr(usuario, "id", ""),
+                getattr(usuario, "nombre", "")
+            ])
+
+    # Cerramos el archivo.
     archivo.close()
 
 
 # =========================================================
-# CARGAR USUARIOS
+#                  CARGAR USUARIOS
 # =========================================================
 
 def cargar_usuarios():
 
-    # Creamos una lista vacía para guardar los usuarios.
+    # Lista donde guardaremos los usuarios.
     usuarios = []
 
-    # Si el archivo todavía no existe,
-    # simplemente devolvemos la lista vacía.
+    # Comprobamos si el archivo existe.
     if not os.path.exists("usuarios.csv"):
         return usuarios
 
-    # Abrimos el archivo para leerlo.
-    archivo = open("usuarios.csv", "r", encoding="utf-8")
+    # Abrimos el archivo.
+    archivo = open(
+        "usuarios.csv",
+        "r",
+        encoding="utf-8"
+    )
 
-    # DictReader nos permite leer cada usuario
-    # usando los nombres de las columnas.
+    # Leemos el CSV.
     lector = csv.DictReader(archivo)
 
-    # Recorremos los usuarios del archivo.
+    # Recorremos las filas.
     for fila in lector:
 
-        # Creamos un usuario.
         usuario = {
             "id": fila["id"],
             "nombre": fila["nombre"]
         }
 
-        # Lo agregamos a la lista.
         usuarios.append(usuario)
 
     # Cerramos el archivo.
     archivo.close()
 
-    # Devolvemos la lista de usuarios.
+    # Devolvemos los usuarios.
     return usuarios
 
 
 # =========================================================
-# GUARDAR TAREAS
+#                   GUARDAR TAREAS
 # =========================================================
 
 def guardar_tareas(tareas):
 
-    # Abrimos el archivo de tareas.
-    archivo = open("tareas.csv", "w", newline="", encoding="utf-8")
+    # Abrimos tareas.csv.
+    archivo = open(
+        "tareas.csv",
+        "w",
+        newline="",
+        encoding="utf-8"
+    )
 
     # Creamos el escritor.
     escritor = csv.writer(archivo)
 
-    # Escribimos los títulos de las columnas.
+    # Escribimos los encabezados.
     escritor.writerow([
         "id",
         "prioridad",
@@ -94,44 +125,59 @@ def guardar_tareas(tareas):
         "descripcion"
     ])
 
-    # Recorremos todas las tareas.
+    # Recorremos las tareas.
     for tarea in tareas:
 
-        # Guardamos cada tarea.
-        escritor.writerow([
-            tarea["id"],
-            tarea["prioridad"],
-            tarea["usuario_id"],
-            tarea["descripcion"]
-        ])
+        # Si la tarea es un diccionario.
+        if isinstance(tarea, dict):
+
+            escritor.writerow([
+                tarea.get("id", ""),
+                tarea.get("prioridad", ""),
+                tarea.get("usuario_id", ""),
+                tarea.get("descripcion", "")
+            ])
+
+        # Si Valeria utiliza objetos Tarea.
+        else:
+
+            escritor.writerow([
+                getattr(tarea, "id", ""),
+                getattr(tarea, "prioridad", ""),
+                getattr(tarea, "usuario_id", ""),
+                getattr(tarea, "descripcion", "")
+            ])
 
     # Cerramos el archivo.
     archivo.close()
 
 
 # =========================================================
-# CARGAR TAREAS
+#                    CARGAR TAREAS
 # =========================================================
 
 def cargar_tareas():
 
-    # Creamos una lista vacía.
+    # Lista vacía.
     tareas = []
 
-    # Comprobamos si existe el archivo.
+    # Comprobamos si existe tareas.csv.
     if not os.path.exists("tareas.csv"):
         return tareas
 
-    # Abrimos el archivo para leerlo.
-    archivo = open("tareas.csv", "r", encoding="utf-8")
+    # Abrimos el archivo.
+    archivo = open(
+        "tareas.csv",
+        "r",
+        encoding="utf-8"
+    )
 
     # Leemos el CSV.
     lector = csv.DictReader(archivo)
 
-    # Recorremos todas las tareas.
+    # Recorremos las tareas.
     for fila in lector:
 
-        # Creamos una tarea.
         tarea = {
             "id": fila["id"],
             "prioridad": fila["prioridad"],
@@ -139,7 +185,6 @@ def cargar_tareas():
             "descripcion": fila["descripcion"]
         }
 
-        # Agregamos la tarea a la lista.
         tareas.append(tarea)
 
     # Cerramos el archivo.
@@ -147,3 +192,48 @@ def cargar_tareas():
 
     # Devolvemos las tareas.
     return tareas
+
+
+# =========================================================
+#                 REGISTRAR AUDITORÍA
+# =========================================================
+
+def registrar_auditoria(
+        id_usuario,
+        accion,
+        id_tarea="-"):
+
+    # Obtenemos la fecha y hora actuales.
+    fecha_hora = datetime.now().strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+    # IMPORTANTE:
+    # Utilizamos "a" y NO "w".
+    #
+    # "a" significa agregar.
+    # De esta manera nunca borramos los
+    # registros anteriores de auditoría.
+    archivo = open(
+        "auditoria_log.csv",
+        "a",
+        encoding="utf-8"
+    )
+
+    # Creamos la línea que vamos a guardar.
+    linea = (
+        fecha_hora
+        + " | "
+        + str(id_usuario)
+        + " | "
+        + str(accion)
+        + " | "
+        + str(id_tarea)
+        + "\n"
+    )
+
+    # Agregamos la línea.
+    archivo.write(linea)
+
+    # Cerramos el archivo.
+    archivo.close()

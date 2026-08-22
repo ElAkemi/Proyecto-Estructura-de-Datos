@@ -1,30 +1,51 @@
 # =========================================================
-#                  WORKFLOW MANAGER
+#                   PROGRAM.PY
+# =========================================================
+#
+# Este es el archivo principal del sistema.
+# Desde aquí se controlan los diferentes módulos.
 # =========================================================
 
-# Importamos las funciones que hicimos en CSVManager.py.
-# Estas funciones nos permiten cargar y guardar información.
+
+# Importamos las funciones del CSV.
 from CSVManager import cargar_usuarios
 from CSVManager import guardar_usuarios
 from CSVManager import cargar_tareas
 from CSVManager import guardar_tareas
+from CSVManager import registrar_auditoria
 
-# Importamos nuestros tres algoritmos de ordenamiento.
+
+# Importamos los algoritmos.
 from Ordenamientos import burbuja
 from Ordenamientos import merge_sort
 from Ordenamientos import quick_sort
 
 
 # =========================================================
-#               LISTAS TEMPORALES
+#               DATOS DEL PROGRAMA
 # =========================================================
 
-# Aquí vamos a guardar temporalmente los usuarios
-# mientras el programa esté funcionando.
+# Listas temporales.
 usuarios = []
-
-# Aquí vamos a guardar temporalmente las tareas.
 tareas = []
+
+
+# =========================================================
+#                 LEER UNA OPCIÓN
+# =========================================================
+
+def leer_opcion():
+
+    # Pedimos una opción.
+    opcion = input(
+        "Seleccione una opción: "
+    )
+
+    # Quitamos espacios innecesarios.
+    opcion = opcion.strip()
+
+    # Devolvemos la opción.
+    return opcion
 
 
 # =========================================================
@@ -33,89 +54,158 @@ tareas = []
 
 def menu_usuarios():
 
-    # El menú se repite hasta seleccionar "Volver".
     while True:
 
-        print("\n============================")
-        print("     GESTIÓN DE USUARIOS")
-        print("============================")
+        print("\n================================")
+        print("       MENÚ DE USUARIOS")
+        print("================================")
         print("1. Registrar usuario")
         print("2. Actualizar usuario")
         print("3. Eliminar usuario")
-        print("4. Mostrar usuarios")
+        print("4. Listar usuarios")
         print("5. Buscar usuario por ID")
-        print("6. Volver")
+        print("6. Deshacer")
+        print("7. Rehacer")
+        print("0. Volver")
+        print("================================")
 
-        # Pedimos al usuario que seleccione una opción.
-        opcion = input("Seleccione una opción: ")
+        opcion = leer_opcion()
 
-        # Estas funciones todavía no están conectadas
-        # porque corresponden al trabajo de José.
+        # Estas opciones se conectarán
+        # posteriormente con el código de José.
 
         if opcion == "1":
-            print("\nRegistrar usuario - Pendiente de integrar.")
+
+            print(
+                "\nRegistrar usuario "
+                "- Pendiente de integrar."
+            )
 
         elif opcion == "2":
-            print("\nActualizar usuario - Pendiente de integrar.")
+
+            print(
+                "\nActualizar usuario "
+                "- Pendiente de integrar."
+            )
 
         elif opcion == "3":
-            print("\nEliminar usuario - Pendiente de integrar.")
+
+            print(
+                "\nEliminar usuario "
+                "- Pendiente de integrar."
+            )
 
         elif opcion == "4":
-            print("\nMostrar usuarios - Pendiente de integrar.")
+
+            print(
+                "\nListar usuarios "
+                "- Pendiente de integrar."
+            )
 
         elif opcion == "5":
-            print("\nBuscar usuario - Pendiente de integrar.")
 
-        # Regresamos al menú principal.
+            print(
+                "\nBuscar usuario "
+                "- Pendiente de integrar."
+            )
+
         elif opcion == "6":
+
+            print(
+                "\nDeshacer "
+                "- Pendiente de integrar."
+            )
+
+        elif opcion == "7":
+
+            print(
+                "\nRehacer "
+                "- Pendiente de integrar."
+            )
+
+        elif opcion == "0":
+
             break
 
-        # Si escribe algo diferente a las opciones anteriores.
         else:
-            print("\nOpción inválida. Intente nuevamente.")
+
+            print(
+                "\nOpción inválida. "
+                "Intente nuevamente."
+            )
 
 
 # =========================================================
-#                  MENÚ DE TAREAS
+#                   MENÚ DE TAREAS
 # =========================================================
 
 def menu_tareas():
 
     while True:
 
-        print("\n============================")
-        print("      GESTIÓN DE TAREAS")
-        print("============================")
+        print("\n================================")
+        print("        MENÚ DE TAREAS")
+        print("================================")
         print("1. Crear tarea")
-        print("2. Ejecutar tarea")
+        print("2. Ejecutar siguiente tarea")
         print("3. Mostrar tareas")
         print("4. Mostrar subtareas")
-        print("5. Volver")
+        print("5. Revisar SLA")
+        print("0. Volver")
+        print("================================")
 
-        opcion = input("Seleccione una opción: ")
+        opcion = leer_opcion()
 
-        # Estas opciones todavía quedan pendientes
-        # porque dependen del módulo de Valeria.
+        # Estas funciones se conectarán
+        # posteriormente con el módulo de Valeria.
 
         if opcion == "1":
-            print("\nCrear tarea - Pendiente de integrar.")
+
+            print(
+                "\nCrear tarea "
+                "- Pendiente de integrar."
+            )
 
         elif opcion == "2":
-            print("\nEjecutar tarea - Pendiente de integrar.")
+
+            print(
+                "\nEjecutar tarea "
+                "- Pendiente de integrar."
+            )
 
         elif opcion == "3":
-            print("\nMostrar tareas - Pendiente de integrar.")
+
+            print(
+                "\nMostrar tareas "
+                "- Pendiente de integrar."
+            )
 
         elif opcion == "4":
-            print("\nMostrar subtareas - Pendiente de integrar.")
 
-        # Regresamos al menú principal.
+            print(
+                "\nMostrar subtareas "
+                "- Pendiente de integrar."
+            )
+
         elif opcion == "5":
+
+            # El control real del SLA corresponde
+            # al módulo de colas.
+            print(
+                "\nControl SLA "
+                "- Pendiente de integrar."
+            )
+
+        elif opcion == "0":
+
             break
 
         else:
-            print("\nOpción inválida. Intente nuevamente.")
+
+            print(
+                "\nOpción inválida. "
+                "Intente nuevamente."
+            )
 
 
 # =========================================================
@@ -126,25 +216,44 @@ def menu_ordenamientos():
 
     while True:
 
-        print("\n============================")
-        print("       ORDENAMIENTOS")
-        print("============================")
+        print("\n================================")
+        print("          ORDENAMIENTOS")
+        print("================================")
         print("1. Burbuja")
         print("2. Merge Sort")
         print("3. Quick Sort")
-        print("4. Volver")
+        print("0. Volver")
+        print("================================")
 
-        opcion = input("Seleccione una opción: ")
+        opcion = leer_opcion()
 
-        # Antes de ordenar comprobamos que existan tareas.
-        if opcion != "4" and len(tareas) == 0:
+        # Si selecciona volver.
+        if opcion == "0":
+            break
 
-            print("\nNo hay tareas para ordenar.")
+        # Validamos las opciones.
+        if opcion not in ["1", "2", "3"]:
 
-            # Volvemos al inicio del menú.
+            print(
+                "\nOpción inválida. "
+                "Intente nuevamente."
+            )
+
             continue
 
-        # Ordenamiento Burbuja.
+        # Comprobamos que existan tareas.
+        if len(tareas) == 0:
+
+            print(
+                "\nNo hay tareas para ordenar."
+            )
+
+            continue
+
+        # ---------------------------------------------
+        # BURBUJA
+        # ---------------------------------------------
+
         if opcion == "1":
 
             resultado = burbuja(tareas)
@@ -152,7 +261,10 @@ def menu_ordenamientos():
             print("\nResultado:")
             print(resultado)
 
-        # Ordenamiento Merge Sort.
+        # ---------------------------------------------
+        # MERGE SORT
+        # ---------------------------------------------
+
         elif opcion == "2":
 
             resultado = merge_sort(tareas)
@@ -160,7 +272,10 @@ def menu_ordenamientos():
             print("\nResultado:")
             print(resultado)
 
-        # Ordenamiento Quick Sort.
+        # ---------------------------------------------
+        # QUICK SORT
+        # ---------------------------------------------
+
         elif opcion == "3":
 
             resultado = quick_sort(tareas)
@@ -168,51 +283,69 @@ def menu_ordenamientos():
             print("\nResultado:")
             print(resultado)
 
-        # Regresamos al menú principal.
-        elif opcion == "4":
-            break
-
-        else:
-            print("\nOpción inválida. Intente nuevamente.")
-
 
 # =========================================================
-#                   CARGAR DATOS
+#                     CARGAR DATOS
 # =========================================================
 
 def cargar_datos():
 
-    # Indicamos que queremos utilizar las listas
-    # que fueron creadas al inicio del programa.
     global usuarios
     global tareas
 
-    # Leemos los usuarios desde usuarios.csv.
-    usuarios = cargar_usuarios()
+    # try intenta ejecutar el código.
+    try:
 
-    # Leemos las tareas desde tareas.csv.
-    tareas = cargar_tareas()
+        usuarios = cargar_usuarios()
+        tareas = cargar_tareas()
 
-    print("\nDatos cargados correctamente.")
+        print(
+            "\nDatos cargados correctamente."
+        )
 
-    # Mostramos cuántos datos fueron encontrados.
-    print("Usuarios cargados:", len(usuarios))
-    print("Tareas cargadas:", len(tareas))
+        print(
+            "Usuarios cargados:",
+            len(usuarios)
+        )
+
+        print(
+            "Tareas cargadas:",
+            len(tareas)
+        )
+
+    # Si ocurre un error, el programa
+    # no se cierra inesperadamente.
+    except Exception as error:
+
+        print(
+            "\nNo se pudieron cargar los datos."
+        )
+
+        print("Error:", error)
 
 
 # =========================================================
-#                   GUARDAR DATOS
+#                    GUARDAR DATOS
 # =========================================================
 
 def guardar_datos():
 
-    # Guardamos los usuarios actuales.
-    guardar_usuarios(usuarios)
+    try:
 
-    # Guardamos las tareas actuales.
-    guardar_tareas(tareas)
+        guardar_usuarios(usuarios)
+        guardar_tareas(tareas)
 
-    print("\nDatos guardados correctamente.")
+        print(
+            "\nDatos guardados correctamente."
+        )
+
+    except Exception as error:
+
+        print(
+            "\nNo se pudieron guardar los datos."
+        )
+
+        print("Error:", error)
 
 
 # =========================================================
@@ -221,8 +354,6 @@ def guardar_datos():
 
 def menu_principal():
 
-    # Este ciclo mantiene funcionando el programa
-    # hasta que el usuario seleccione "Salir".
     while True:
 
         print("\n================================")
@@ -233,50 +364,49 @@ def menu_principal():
         print("3. Ordenamientos")
         print("4. Cargar datos")
         print("5. Guardar datos")
-        print("6. Salir")
+        print("0. Salir")
+        print("================================")
 
-        opcion = input("Seleccione una opción: ")
+        opcion = leer_opcion()
 
-        # Abrimos el menú de usuarios.
         if opcion == "1":
 
             menu_usuarios()
 
-        # Abrimos el menú de tareas.
         elif opcion == "2":
 
             menu_tareas()
 
-        # Abrimos nuestro menú de ordenamientos.
         elif opcion == "3":
 
             menu_ordenamientos()
 
-        # Cargamos la información de los CSV.
         elif opcion == "4":
 
             cargar_datos()
 
-        # Guardamos la información en los CSV.
         elif opcion == "5":
 
             guardar_datos()
 
-        # Terminamos el programa.
-        elif opcion == "6":
+        elif opcion == "0":
 
-            print("\nPrograma finalizado.")
+            print(
+                "\nPrograma finalizado."
+            )
+
             break
 
-        # Evitamos que una opción incorrecta cierre el programa.
         else:
 
-            print("\nOpción inválida. Intente nuevamente.")
+            print(
+                "\nOpción inválida. "
+                "Intente nuevamente."
+            )
 
 
 # =========================================================
-#                   INICIO DEL PROGRAMA
+#                  INICIAR PROGRAMA
 # =========================================================
 
-# Esta línea inicia nuestro programa.
 menu_principal()
