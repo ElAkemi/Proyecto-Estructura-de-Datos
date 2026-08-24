@@ -19,21 +19,27 @@ class UsuarioRepository:
                 reader = csv.reader(archivo)
 
                 for row in reader:
-                    if len(row) != 3:  # Asegurarse de que la fila tenga los tres campos
-                       continue
 
-                    id = int(row[0])
-                    nombre = row[1]
-                    rol = row[2]
+                    # La fila debe tener ID, nombre y rol
+                    if len(row) != 3:
+                        continue
 
-                    usuario = Usuario(id, nombre, rol)
-                    lista_usuarios.insertar(usuario)
-                    
+                    try:
+                        id = int(row[0])
+                        nombre = row[1]
+                        rol = row[2]
+
+                        usuario = Usuario(id, nombre, rol)
+                        lista_usuarios.insertar(usuario)
+
+                    except ValueError:
+                        # Ignorar registros inválidos del CSV
+                        continue
+
         except FileNotFoundError:
+            # Si el archivo no existe, no hay usuarios que cargar
             pass
                 
-    
-
     def recorrer_lista_usuarios(self, lista_usuarios):
         # Este método debería recorrer la lista de usuarios y devolver los nodos
         # Aquí se asume que self.lista_usuarios es una instancia de ListaDoble
