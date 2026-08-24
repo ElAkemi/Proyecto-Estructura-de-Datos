@@ -37,5 +37,3 @@ class ArbolTareas:
     def obtener_todas(self) -> list:
         """Retorna todas las tareas del árbol."""
         return self.raiz.obtener_todas() if self.raiz else []
-
-    

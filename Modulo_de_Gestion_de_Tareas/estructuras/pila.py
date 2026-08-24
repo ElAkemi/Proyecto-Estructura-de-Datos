@@ -1,4 +1,4 @@
-# Implementación manual de Pila (LIFO) mediante nodos simplemente enlazados.
+"""Implementación manual de Pila (LIFO) mediante nodos simplemente enlazados."""
 class NodoPila:
     def __init__(self, dato):
         self.dato = dato

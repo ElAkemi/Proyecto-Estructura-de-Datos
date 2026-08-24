@@ -1,172 +1,106 @@
-# Representa un nodo individual en una lista simplemente enlazada.
-# Cada nodo almacena un dato y una referencia al siguiente nodo.
+"""Módulo que implementa una cola FIFO (First-In, First-Out) con nodos."""
+
 class NodoCola:
+    """Representa un nodo individual en una lista simplemente enlazada."""
+
     def __init__(self, dato):
-        # Almacena la información o el objeto principal que guarda el nodo
+        """Inicializa un nuevo nodo con el dato recibido y puntero vacio."""
         self.dato = dato
-        
-        # Puntero hacia el siguiente NodoCola en la lista (None si es el último)
         self.siguiente = None
 
 class ColaFIFO:
+    """Implementa una estructura de datos Cola FIFO basada en nodos."""
+
     def __init__(self):
-        # Referencia al primer elemento de la cola 
+        """Inicializa una cola vacia con punteros al frente, final y tamano 0."""
         self._frente = None
-        
-        # Referencia al último elemento de la cola 
         self._final = None
-        
-        # Contador interno del número total de elementos almacenados en la cola
         self._tamano = 0
 
     def encolar(self, dato):
-        # Instancia un nuevo nodo envolviendo el dato recibido
+        """Agrega un nuevo elemento al final de la cola."""
         nuevo_nodo = NodoCola(dato)
-        
-        # Si la cola está completamente vacía
+
         if self.esta_vacia():
-            # El nuevo nodo se convierte simultáneamente en la cabeza (frente) y cola (final)
             self._frente = nuevo_nodo
             self._final = nuevo_nodo
         else:
-            # Si la cola ya contiene elementos
-            self._final.siguiente = nuevo_nodo # Enlaza el nodo que estaba al final con el nuevo nodo
-            
-            # Actualiza el puntero del final para que apunte al nuevo nodo recien insertado
+            self._final.siguiente = nuevo_nodo
             self._final = nuevo_nodo
-            
-        # Incrementa en 1 el contador global de elementos
+
         self._tamano += 1
 
     def desencolar(self):
-        # Verifica que la cola tenga elementos antes de intentar extraer
+        """Extrae y retorna el elemento en el frente de la cola."""
         if self.esta_vacia():
-            # Lanza una excepción si se intenta extraer de una cola vacía
             raise IndexError("La cola está vacía.")
-            
-        # Guarda temporalmente el dato almacenado en el nodo del frente
+
         dato = self._frente.dato
-        
-        # Desplaza el puntero del frente al siguiente nodo de la lista
         self._frente = self._frente.siguiente
-        
-        # Si al mover el frente la lista queda vacía (el frente es None)
+
         if self._frente is None:
-            # Resetea también la referencia del final a None para mantener consistencia
             self._final = None
-            
-        # Decrementa en 1 el contador global de elementos
+
         self._tamano -= 1
-        
-        # Retorna el dato que fue extraído
         return dato
 
     def ver_frente(self):
-        # Si la cola está vacía, no hay nada que retornar
+        """Retorna el dato en el frente de la cola sin removerlo."""
         if self.esta_vacia():
             return None
-        # Retorna la información almacenada en el nodo frontal
         return self._frente.dato
 
     def esta_vacia(self) -> bool:
-        # Retorna True si la referencia al frente es None; de lo contrario, False
+        """Verifica si la cola no contiene elementos."""
         return self._frente is None
 
     def obtener_lista(self) -> list:
-        # Inicializa un arreglo vacío para almacenar los elementos
+        """Retorna todos los elementos de la cola en una lista de Python."""
         elementos = []
-        
-        # Inicializa un puntero de recorrido comenzando por el frente
         actual = self._frente
-        
-        # Recorre la lista enlazada nodo por nodo hasta llegar a None
         while actual:
-            # Añade el dato del nodo actual a la lista resultante
             elementos.append(actual.dato)
-            
-            # Avanza la posición del puntero al siguiente nodo
             actual = actual.siguiente
-            
-        # Retorna la lista con todos los objetos recolectados
         return elementos
 
     def buscar_por_id(self, id_tarea: int):
-        # Asegura la conversión del ID de búsqueda a entero para evitar fallos de tipo
+        """Busca y retorna un elemento por su atributo id_tarea."""
         id_buscado = int(id_tarea)
-        
-        # Comienza el recorrido desde el nodo inicial (frente)
         actual = self._frente
-        
-        # Itera sobre los nodos mientras no se alcance el final (None)
         while actual:
-            # Utiliza getattr para verificar de forma segura si el dato tiene la propiedad 'id_tarea'
             if getattr(actual.dato, "id_tarea", None) == id_buscado:
-                # Si los IDs coinciden, retorna inmediatamente el objeto encontrado
                 return actual.dato
-                
-            # Avanza hacia el nodo subsiguiente
             actual = actual.siguiente
-            
-        # Retorna None si finalizó el recorrido sin encontrar ningún nodo coincidente
         return None
 
     def eliminar_por_id(self, id_tarea: int) -> bool:
-        # Si la cola no contiene elementos, no hay nada que eliminar
+        """Elimina un nodo especifico buscando por su id_tarea."""
         if self.esta_vacia():
             return False
 
-        # Normaliza el parámetro a número entero
         id_buscado = int(id_tarea)
 
-        # El elemento a eliminar está en el frente (primer nodo)
         if getattr(self._frente.dato, "id_tarea", None) == id_buscado:
-            # Hace que el frente apunte directamente al segundo nodo
             self._frente = self._frente.siguiente
-            
-            # Si tras eliminar la cabeza no quedan más elementos en la cola
             if self._frente is None:
-                # Resetea también el puntero del final a None
                 self._final = None
-                
-            # Reduce el contador de tamaño
             self._tamano -= 1
-            
-            # Retorna True indicando que la eliminación fue exitosa
             return True
 
-        # El elemento está en el cuerpo de la cola o al final
         actual = self._frente
-        
-        # Evalúa el nodo siguiente (actual.siguiente) mientras exista
         while actual.siguiente:
-            # Comprueba si el nodo hijo/siguiente contiene el ID buscado
             if getattr(actual.siguiente.dato, "id_tarea", None) == id_buscado:
-                # Si el nodo a eliminar resulta ser el último nodo (final)
                 if actual.siguiente == self._final:
-                    # Actualiza la referencia del final al nodo previo (actual)
                     self._final = actual
-                    
-                # "Salta" el nodo objetivo enlazando 'actual' directamente con el posterior al objetivo
                 actual.siguiente = actual.siguiente.siguiente
-                
-                # Decrementa el contador global de elementos
                 self._tamano -= 1
-                
-                # Confirma la eliminación exitosa
                 return True
-                
-            # Avanza el puntero de inspección al siguiente nodo
             actual = actual.siguiente
-            
-        # Si terminó todo el bucle sin coincidencias, retorna False
+
         return False
 
     def incrementar_ciclos_y_extraer_escaladas(self, max_ciclos: int) -> list:
-        """
-        Incrementa el contador de ciclos de espera de todas las tareas en la cola regular.
-        Aquellas tareas que alcancen o superen max_ciclos son removidas de la cola
-        y retornadas en una lista para su posterior escalamiento a la cola urgente.
-        """
+        """Incrementa los ciclos de espera y remueve las tareas que superan el maximo."""
         escaladas = []
         if self.esta_vacia():
             return escaladas
@@ -176,7 +110,6 @@ class ColaFIFO:
 
         while actual:
             tarea = actual.dato
-            # Incrementar ciclos de espera si la tarea cuenta con el método/atributo
             if hasattr(tarea, "incrementar_ciclo_espera"):
                 tarea.incrementar_ciclo_espera()
             elif hasattr(tarea, "ciclos_espera"):
@@ -184,12 +117,9 @@ class ColaFIFO:
 
             ciclos = getattr(tarea, "ciclos_espera", 0)
 
-            # Verificar si la tarea superó el límite de espera para escalar
             if ciclos >= max_ciclos:
                 escaladas.append(tarea)
-                # Remover de la lista enlazada
                 if previo is None:
-                    # Es el frente
                     self._frente = actual.siguiente
                     if self._frente is None:
                         self._final = None
@@ -207,5 +137,6 @@ class ColaFIFO:
         return escaladas
 
     def __len__(self):
-        # Retorna el entero que almacena el conteo actual de elementos
+        """Retorna la cantidad de elementos en la cola."""
         return self._tamano
+    
