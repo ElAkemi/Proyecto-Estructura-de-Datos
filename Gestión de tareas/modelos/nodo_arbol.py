@@ -44,5 +44,4 @@ class NodoArbolTarea:
         """Representación del nodo en formato de cadena."""
         estado = "Completada" if self.completada else "Pendiente"
         return f"NodoArbolTarea(ID={self.id_subtarea}, Desc='{self.descripcion}', Estado={estado}, Subtareas={len(self.subtareas)})"
-
-NodoArbol = NodoArbolTarea
+    

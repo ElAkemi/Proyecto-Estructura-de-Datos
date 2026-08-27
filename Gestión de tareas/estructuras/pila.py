@@ -1,10 +1,14 @@
 """Implementación manual de Pila (LIFO) mediante nodos simplemente enlazados."""
+
 class NodoPila:
+    """Nodo simple con dato y puntero al siguiente nodo."""
     def __init__(self, dato):
         self.dato = dato
         self.siguiente = None
 
 class Pila:
+    """Pila (LIFO) implementada con nodos enlazados."""
+    
     def __init__(self):
         self.tope = None
         self._tamano = 0
@@ -41,4 +45,5 @@ class Pila:
         self._tamano = 0
 
     def __len__(self):
+        """Retorna el número de elementos en la pila."""
         return self._tamano
