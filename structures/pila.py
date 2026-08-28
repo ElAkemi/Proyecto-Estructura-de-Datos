@@ -1,98 +1,75 @@
-"""Módulo que implementa una pila."""
-
-
 from structures.nodo_pila import NodoPila
 
 
 class Pila:
-    """Implementa una estructura de datos tipo pila."""
+    """Implementación de una pila utilizando nodos enlazados."""
 
     def __init__(self):
-        """
-        Inicializa una pila vacía.
+        self.tope = None
+        self.tamano = 0
 
-        :return: None.
-        """
+    def apilar(self, dato):
+        """Agrega un elemento en el tope de la pila."""
 
-        self.cima = None
+        nuevo_nodo = NodoPila(dato)
 
-    def apilar(self, accion):
-        """
-        Agrega una acción a la cima de la pila.
+        nuevo_nodo.siguiente = self.tope
+        self.tope = nuevo_nodo
 
-        :param accion: Acción que se desea almacenar.
-        :return: None.
-        """
-
-        nuevo_nodo = NodoPila(accion)
-
-        # El nuevo nodo apunta al que estaba arriba
-        nuevo_nodo.siguiente = self.cima
-
-        # La cima ahora es el nuevo nodo
-        self.cima = nuevo_nodo
+        self.tamano += 1
 
     def desapilar(self):
         """
-        Retira y retorna la acción ubicada en la cima.
+        Elimina y devuelve el elemento del tope.
 
-        :return: Acción retirada o None si la pila está vacía.
+        Retorna:
+            El dato del tope o None si está vacía.
         """
 
-        # La pila está vacía
-        if self.cima is None:
+        if self.esta_vacia():
             return None
 
-        # Guardar el nodo que está en la cima
-        nodo_desapilado = self.cima
+        dato = self.tope.dato
 
-        # La cima ahora es el siguiente nodo
-        self.cima = self.cima.siguiente
+        self.tope = self.tope.siguiente
 
-        nodo_desapilado.siguiente = None
+        self.tamano -= 1
 
-        # Retornar la acción del nodo desapilado
-        return nodo_desapilado.accion
+        return dato
 
     def peek(self):
-        """
-        Consulta la acción ubicada en la cima sin eliminarla.
+        """Devuelve el elemento del tope sin eliminarlo."""
 
-        :return: Acción en la cima o None.
-        """
-
-        # La pila está vacía
-        if self.cima is None:
+        if self.esta_vacia():
             return None
 
-        return self.cima.accion
+        return self.tope.dato
 
     def esta_vacia(self):
-        """
-        Verifica si la pila está vacía.
+        """Indica si la pila está vacía."""
 
-        :return: True si está vacía, False en caso contrario.
-        """
-
-        return self.cima is None
+        return self.tope is None
 
     def mostrar(self):
-        """
-        Muestra las acciones almacenadas en la pila.
+        """Devuelve los elementos de la pila de arriba hacia abajo."""
 
-        :return: None.
-        """
+        elementos = []
 
-        if self.cima is None:
-            print("La pila está vacía")
-            return
-
-        actual = self.cima
+        actual = self.tope
 
         while actual is not None:
-            print(
-                f"Tipo: {actual.accion.tipo}, "
-                f"Descripción: {actual.accion.descripcion}"
-            )
-
+            elementos.append(actual.dato)
             actual = actual.siguiente
+
+        return elementos
+
+    def limpiar(self):
+        """Vacía completamente la pila."""
+
+        self.tope = None
+        self.tamano = 0
+
+    def __len__(self):
+        """Devuelve la cantidad de elementos."""
+
+        return self.tamano

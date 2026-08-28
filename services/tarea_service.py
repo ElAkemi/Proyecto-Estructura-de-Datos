@@ -1,667 +1,626 @@
-"""Módulo que contiene la lógica de negocio de las tareas."""
-
-from copy import deepcopy
-
 from models.tarea import Tarea
 from models.prioridad import Prioridad
 from models.accion import Accion
-from structures.nodo_arbol import NodoArbolTarea
+
+from structures.cola_fifo import ColaFIFO
+from structures.cola_prioridad import ColaPrioridad
+from structures.arbol_tareas import ArbolTareas
+
+from services.ordenador_tareas import OrdenadorTareas
 
 
 class TareaService:
-    """Gestiona las tareas y sus árboles de subtareas."""
+    """Gestiona las tareas y sus estructuras de datos."""
+
+    LIMITE_SLA = 3
 
     def __init__(
         self,
         tarea_repository,
-        historial_service=None
+        historial_service=None,
+        auditoria_service=None,
+        usuario_service=None
     ):
-        """Inicializa el servicio de tareas."""
-
         self.tarea_repository = tarea_repository
-        self.historial_service = historial_service
+        self.historial = historial_service
+        self.auditoria = auditoria_service
+        self.usuario_service = usuario_service
 
-        self.tareas = []
-        self.arboles_subtareas = {}
+        self.cola_fifo = ColaFIFO()
+        self.cola_prioridad = ColaPrioridad()
+        self.arbol = ArbolTareas()
 
-        self.cargar_datos()
+        self._cargar_tareas()
 
-    # =========================================================
-    # CONFIGURACIÓN
-    # =========================================================
+    def _cargar_tareas(self):
+        """Carga las tareas desde el CSV."""
 
-    def establecer_historial(self, historial_service):
-        """Establece el servicio de historial compartido."""
+        tareas = self.tarea_repository.cargar()
 
-        self.historial_service = historial_service
+        # Primero construimos el árbol.
+        # Las tareas padre deben existir antes
+        # que sus subtareas.
+        pendientes = list(tareas)
 
-    # =========================================================
-    # PERSISTENCIA
-    # =========================================================
+        while pendientes:
 
-    def cargar_datos(self):
-        """Carga las tareas y subtareas desde el repositorio."""
+            progreso = False
 
-        resultado = self.tarea_repository.cargar_tareas()
+            for tarea in pendientes[:]:
 
-        self.tareas, self.arboles_subtareas = resultado
+                if tarea.padre_id is None:
+                    self.arbol.agregar(tarea)
+                    pendientes.remove(tarea)
+                    progreso = True
 
-    def guardar_datos(self):
-        """Guarda las tareas y subtareas en el repositorio."""
+                elif self.arbol.buscar(
+                    tarea.padre_id
+                ) is not None:
 
-        self.tarea_repository.guardar_tareas(
-            self.tareas,
-            self.arboles_subtareas
+                    self.arbol.agregar(tarea)
+                    pendientes.remove(tarea)
+                    progreso = True
+
+            if not progreso:
+                # Evita un ciclo infinito si existe
+                # información inconsistente.
+                break
+
+        # Reconstruimos las colas.
+        for tarea in tareas:
+
+            if tarea.estado != "Pendiente":
+                continue
+
+            if tarea.prioridad == Prioridad.URGENTE:
+                self.cola_prioridad.encolar(tarea)
+
+            else:
+                self.cola_fifo.encolar(tarea)
+
+    def _guardar(self):
+        """Guarda todas las tareas."""
+
+        self.tarea_repository.guardar(
+            self.arbol.listar()
         )
 
-    # =========================================================
-    # BUSCAR TAREA
-    # =========================================================
+    def _validar_responsable(self, responsable_id):
+        """Comprueba que el responsable exista."""
 
-    def buscar_tarea(self, id_tarea):
-        """
-        Busca una tarea por ID.
+        if self.usuario_service is None:
+            return
 
-        :param id_tarea: ID de la tarea.
-        :return: Tarea encontrada o None.
-        """
+        usuario = self.usuario_service.buscar_usuario(
+            responsable_id
+        )
 
-        try:
-            id_tarea = int(id_tarea)
+        if usuario is None:
+            raise ValueError(
+                "El usuario responsable no existe."
+            )
 
-        except (ValueError, TypeError):
-            return None
+    def _obtener_tarea(self, tarea_id):
+        """Busca una tarea."""
 
-        for tarea in self.tareas:
+        tarea = self.arbol.buscar(tarea_id)
 
-            if tarea.id_tarea == id_tarea:
-                return tarea
+        if tarea is None:
+            raise ValueError(
+                "No existe una tarea con ese ID."
+            )
 
-        return None
-
-    # =========================================================
-    # AGREGAR TAREA
-    # =========================================================
+        return tarea
 
     def agregar_tarea(
         self,
         id_tarea,
-        descripcion,
         prioridad,
-        id_usuario,
-        estado="Pendiente",
-        ciclos_espera=0,
-        id_usuario_ejecutor=None
+        responsable_id,
+        descripcion,
+        padre_id=None,
+        registrar_historial=True
     ):
-        """
-        Agrega una nueva tarea.
+        """Crea y agrega una tarea."""
 
-        :return: True si se agregó correctamente.
-        """
-
-        try:
-            id_tarea = int(id_tarea)
-            id_usuario = int(id_usuario)
-            ciclos_espera = int(ciclos_espera)
-
-            if id_tarea <= 0:
-                return False
-
-            if id_usuario <= 0:
-                return False
-
-            if ciclos_espera < 0:
-                return False
-
-            if self.buscar_tarea(id_tarea) is not None:
-                return False
-
-            if (
-                not isinstance(descripcion, str)
-                or not descripcion.strip()
-            ):
-                return False
-
-            prioridad = (
-                prioridad
-                if isinstance(prioridad, Prioridad)
-                else Prioridad.desde_texto(prioridad)
+        if not isinstance(id_tarea, int):
+            raise ValueError(
+                "El ID debe ser un número entero."
             )
 
-            tarea = Tarea(
-                id_tarea=id_tarea,
-                descripcion=descripcion.strip(),
-                prioridad=prioridad,
-                id_usuario=id_usuario,
-                estado=estado,
-                ciclos_espera=ciclos_espera
+        if id_tarea <= 0:
+            raise ValueError(
+                "El ID debe ser positivo."
             )
 
-        except (ValueError, TypeError):
-            return False
+        if self.arbol.buscar(id_tarea) is not None:
+            raise ValueError(
+                "Ya existe una tarea con ese ID."
+            )
 
-        self.tareas.append(tarea)
+        if not isinstance(responsable_id, int):
+            raise ValueError(
+                "El responsable debe tener un ID válido."
+            )
 
-        self.arboles_subtareas[id_tarea] = NodoArbolTarea(
-            id_subtarea=id_tarea,
-            descripcion=tarea.descripcion,
-            id_padre=None,
-            completada=tarea.estado == "Finalizada"
+        self._validar_responsable(responsable_id)
+
+        if padre_id is not None:
+
+            if self.arbol.buscar(padre_id) is None:
+                raise ValueError(
+                    "La tarea padre no existe."
+                )
+
+            if padre_id == id_tarea:
+                raise ValueError(
+                    "Una tarea no puede ser su propia padre."
+                )
+
+        prioridad = Prioridad.desde_texto(
+            prioridad
         )
 
-        self.guardar_datos()
+        tarea = Tarea(
+            id=id_tarea,
+            prioridad=prioridad,
+            responsable_id=responsable_id,
+            descripcion=descripcion,
+            padre_id=padre_id
+        )
 
-        if self.historial_service is not None:
-
-            accion = Accion(
-                "AGREGAR_TAREA",
-                f"Se agregó la tarea: {id_tarea}",
-                deepcopy(tarea),
-                id_usuario_ejecutor
+        if not self.arbol.agregar(tarea):
+            raise ValueError(
+                "No se pudo agregar la tarea al árbol."
             )
 
-            self.historial_service.registrar_accion(
+        if prioridad == Prioridad.URGENTE:
+            self.cola_prioridad.encolar(tarea)
+
+        else:
+            self.cola_fifo.encolar(tarea)
+
+        self._guardar()
+
+        if registrar_historial and self.historial is not None:
+
+            accion = Accion(
+                Accion.AGREGAR,
+                f"Se agregó la tarea {id_tarea}",
+                tarea.copiar()
+            )
+
+            self.historial.registrar_accion(
                 accion
             )
 
-        return True
+        return tarea
 
-    # =========================================================
-    # MODIFICAR TAREA
-    # =========================================================
+    def buscar_tarea(self, id_tarea):
+        """Busca una tarea por ID."""
+
+        return self.arbol.buscar(id_tarea)
+
+    def listar_tareas(self):
+        """Devuelve todas las tareas."""
+
+        return self.arbol.listar()
+
+    def listar_pendientes(self):
+        """Devuelve únicamente las tareas pendientes."""
+
+        return [
+            tarea
+            for tarea in self.arbol.listar()
+            if tarea.estado == "Pendiente"
+        ]
 
     def modificar_tarea(
         self,
         id_tarea,
-        nueva_descripcion=None,
-        nueva_prioridad=None,
-        nuevo_id_usuario=None,
-        id_usuario_ejecutor=None
+        descripcion=None,
+        prioridad=None,
+        responsable_id=None,
+        registrar_historial=True
     ):
-        """
-        Modifica una tarea existente.
+        """Modifica una tarea."""
 
-        :return: True si se modificó correctamente.
-        """
+        tarea = self._obtener_tarea(id_tarea)
 
-        tarea = self.buscar_tarea(id_tarea)
+        anterior = tarea.copiar()
 
-        if tarea is None:
-            return False
+        if descripcion is not None:
 
-        datos_anterior = {
-            "descripcion": tarea.descripcion,
-            "prioridad": tarea.prioridad,
-            "id_usuario": tarea.id_usuario
-        }
+            if not isinstance(
+                descripcion,
+                str
+            ) or not descripcion.strip():
 
-        # =====================================================
-        # VALIDAR TODO ANTES DE MODIFICAR
-        # =====================================================
-
-        descripcion_final = tarea.descripcion
-        prioridad_final = tarea.prioridad
-        id_usuario_final = tarea.id_usuario
-
-        try:
-
-            if nueva_descripcion is not None:
-
-                if (
-                    not isinstance(nueva_descripcion, str)
-                    or not nueva_descripcion.strip()
-                ):
-                    return False
-
-                descripcion_final = nueva_descripcion.strip()
-
-            if nueva_prioridad is not None:
-
-                prioridad_final = (
-                    nueva_prioridad
-                    if isinstance(
-                        nueva_prioridad,
-                        Prioridad
-                    )
-                    else Prioridad.desde_texto(
-                        nueva_prioridad
-                    )
+                raise ValueError(
+                    "La descripción no puede estar vacía."
                 )
 
-            if nuevo_id_usuario is not None:
+            tarea.descripcion = descripcion.strip()
 
-                id_usuario_final = int(
-                    nuevo_id_usuario
-                )
+        if prioridad is not None:
 
-                if id_usuario_final <= 0:
-                    return False
-
-        except (ValueError, TypeError):
-            return False
-
-        # =====================================================
-        # APLICAR MODIFICACIÓN
-        # =====================================================
-
-        tarea.descripcion = descripcion_final
-        tarea.prioridad = prioridad_final
-        tarea.id_usuario = id_usuario_final
-
-        raiz = self.arboles_subtareas.get(
-            tarea.id_tarea
-        )
-
-        if raiz is not None:
-            raiz.descripcion = tarea.descripcion
-
-        datos_nuevo = {
-            "descripcion": tarea.descripcion,
-            "prioridad": tarea.prioridad,
-            "id_usuario": tarea.id_usuario
-        }
-
-        self.guardar_datos()
-
-        # =====================================================
-        # HISTORIAL
-        # =====================================================
-
-        if self.historial_service is not None:
-
-            accion = Accion(
-                "MODIFICAR_TAREA",
-                f"Se modificó la tarea: {id_tarea}",
-                {
-                    "id_tarea": id_tarea,
-                    "anterior": deepcopy(datos_anterior),
-                    "nuevo": deepcopy(datos_nuevo)
-                },
-                id_usuario_ejecutor
+            tarea.prioridad = Prioridad.desde_texto(
+                prioridad
             )
 
-            self.historial_service.registrar_accion(
+        if responsable_id is not None:
+
+            if not isinstance(
+                responsable_id,
+                int
+            ):
+                raise ValueError(
+                    "El responsable debe ser un ID válido."
+                )
+
+            self._validar_responsable(
+                responsable_id
+            )
+
+            tarea.responsable_id = responsable_id
+
+        self._reconstruir_colas()
+        self._guardar()
+
+        if registrar_historial and self.historial is not None:
+
+            accion = Accion(
+                Accion.MODIFICAR,
+                f"Se modificó la tarea {id_tarea}",
+                {
+                    "anterior": anterior,
+                    "nuevo": tarea.copiar(),
+                }
+            )
+
+            self.historial.registrar_accion(
                 accion
             )
 
-        return True
-
-    # =========================================================
-    # ELIMINAR TAREA
-    # =========================================================
+        return tarea
 
     def eliminar_tarea(
         self,
         id_tarea,
-        id_usuario_ejecutor=None
+        registrar_historial=True
     ):
-        """
-        Elimina una tarea y todo su árbol de subtareas.
+        """Elimina una tarea y sus subtareas."""
 
-        :return: True si se eliminó correctamente.
-        """
+        tarea = self._obtener_tarea(id_tarea)
 
-        tarea = self.buscar_tarea(id_tarea)
+        copia = tarea.copiar()
 
-        if tarea is None:
-            return False
-
-        tarea_eliminada = deepcopy(tarea)
-
-        arbol = self.arboles_subtareas.get(
-            tarea.id_tarea
-        )
-
-        arbol_eliminado = (
-            deepcopy(arbol)
-            if arbol is not None
-            else None
-        )
-
-        self.tareas.remove(tarea)
-
-        self.arboles_subtareas.pop(
-            tarea.id_tarea,
-            None
-        )
-
-        self.guardar_datos()
-
-        if self.historial_service is not None:
-
-            accion = Accion(
-                "ELIMINAR_TAREA",
-                f"Se eliminó la tarea: {id_tarea}",
-                {
-                    "tarea": tarea_eliminada,
-                    "arbol": arbol_eliminado
-                },
-                id_usuario_ejecutor
+        if not self.arbol.eliminar(id_tarea):
+            raise ValueError(
+                "No se pudo eliminar la tarea."
             )
 
-            self.historial_service.registrar_accion(
-                accion
-            )
-
-        return True
-
-    # =========================================================
-    # AGREGAR SUBTAREA
-    # =========================================================
-
-    def agregar_subtarea(
-        self,
-        id_padre,
-        id_subtarea,
-        descripcion,
-        completada=False,
-        id_usuario_ejecutor=None
-    ):
-        """
-        Agrega una subtarea a una tarea o subtarea existente.
-
-        :return: True si se agregó correctamente.
-        """
-
-        try:
-            id_padre = int(id_padre)
-            id_subtarea = int(id_subtarea)
-
-        except (ValueError, TypeError):
-            return False
-
-        if id_subtarea <= 0:
-            return False
-
-        if (
-            not isinstance(descripcion, str)
-            or not descripcion.strip()
-        ):
-            return False
-
-        # =====================================================
-        # VERIFICAR ID ÚNICO
-        # =====================================================
-
-        for raiz in self.arboles_subtareas.values():
-
-            if raiz.buscar_nodo(id_subtarea) is not None:
-                return False
-
-        # =====================================================
-        # BUSCAR PADRE
-        # =====================================================
-
-        padre = None
-
-        for raiz in self.arboles_subtareas.values():
-
-            encontrado = raiz.buscar_nodo(
-                id_padre
-            )
-
-            if encontrado is not None:
-                padre = encontrado
-                break
-
-        if padre is None:
-            return False
-
-        # =====================================================
-        # CREAR SUBTAREA
-        # =====================================================
-
-        nueva_subtarea = NodoArbolTarea(
-            id_subtarea=id_subtarea,
-            descripcion=descripcion.strip(),
-            id_padre=id_padre,
-            completada=bool(completada)
-        )
-
-        padre.subtareas.append(
-            nueva_subtarea
-        )
-
-        self.guardar_datos()
-
-        # =====================================================
-        # HISTORIAL
-        # =====================================================
-
-        if self.historial_service is not None:
-
-            accion = Accion(
-                "AGREGAR_SUBTAREA",
-                f"Se agregó la subtarea: {id_subtarea}",
-                {
-                    "id_subtarea": id_subtarea,
-                    "id_padre": id_padre,
-                    "subtarea": deepcopy(
-                        nueva_subtarea
-                    )
-                },
-                id_usuario_ejecutor
-            )
-
-            self.historial_service.registrar_accion(
-                accion
-            )
-
-        return True
-
-    # =========================================================
-    # ELIMINAR SUBTAREA
-    # =========================================================
-
-    def eliminar_subtarea(
-        self,
-        id_subtarea,
-        id_usuario_ejecutor=None
-    ):
-        """
-        Elimina una subtarea de cualquier árbol.
-
-        Guarda una copia completa del nodo antes de eliminarlo
-        para permitir las operaciones de deshacer y rehacer.
-
-        :return: True si se eliminó correctamente.
-        """
-
-        try:
-            id_subtarea = int(id_subtarea)
-
-        except (ValueError, TypeError):
-            return False
-
-        if id_subtarea <= 0:
-            return False
-
-        # =====================================================
-        # BUSCAR SUBTAREA
-        # =====================================================
-
-        subtarea = self.buscar_subtarea(
-            id_subtarea
-        )
-
-        if subtarea is None:
-            return False
-
-        # =====================================================
-        # GUARDAR COPIA ANTES DE ELIMINAR
-        # =====================================================
-
-        subtarea_eliminada = deepcopy(
-            subtarea
-        )
-
-        # =====================================================
-        # ELIMINAR SUBTAREA
-        # =====================================================
-
-        resultado = self._eliminar_subtarea(
-            id_subtarea
-        )
-
-        if resultado is None:
-            return False
-
-        self.guardar_datos()
-
-        # =====================================================
-        # HISTORIAL
-        # =====================================================
-
-        if self.historial_service is not None:
-
-            accion = Accion(
-                "ELIMINAR_SUBTAREA",
-                f"Se eliminó la subtarea: {id_subtarea}",
-                {
-                    "nodo": deepcopy(
-                        subtarea_eliminada
-                    )
-                },
-                id_usuario_ejecutor
-            )
-
-            self.historial_service.registrar_accion(
-                accion
-            )
-
-        return True
-
-    # =========================================================
-    # BUSCAR SUBTAREA
-    # =========================================================
-
-    def buscar_subtarea(self, id_subtarea):
-        """
-        Busca una subtarea en todos los árboles.
-
-        :return: Nodo encontrado o None.
-        """
-
-        try:
-            id_subtarea = int(id_subtarea)
-
-        except (ValueError, TypeError):
-            return None
-
-        for raiz in self.arboles_subtareas.values():
-
-            encontrado = raiz.buscar_nodo(
-                id_subtarea
-            )
-
-            if encontrado is not None:
-                return encontrado
-
-        return None
-
-    # =========================================================
-    # COMPLETAR SUBTAREA
-    # =========================================================
-
-    def completar_subtarea(self, id_subtarea):
-        """
-        Marca una subtarea como completada.
-
-        :return: True si se realizó correctamente.
-        """
-
-        subtarea = self.buscar_subtarea(
-            id_subtarea
-        )
-
-        if subtarea is None:
-            return False
-
-        subtarea.completada = True
-
-        self.guardar_datos()
-
-        return True
-
-    # =========================================================
-    # LISTAR SUBTAREAS
-    # =========================================================
-
-    def listar_subtareas(self, id_tarea):
-        """
-        Obtiene todas las subtareas de una tarea.
-
-        :return: Lista de tuplas.
-        """
-
-        try:
-            id_tarea = int(id_tarea)
-
-        except (ValueError, TypeError):
-            return []
-
-        raiz = self.arboles_subtareas.get(
+        self.cola_fifo.remover_por_id(
             id_tarea
         )
 
-        if raiz is None:
-            return []
+        self.cola_prioridad.remover_por_id(
+            id_tarea
+        )
 
-        return raiz.obtener_todas()
+        self._guardar()
 
-    # =========================================================
-    # MÉTODOS AUXILIARES PARA SUBTAREAS
-    # =========================================================
+        if registrar_historial and self.historial is not None:
 
-    def _eliminar_subtarea(self, id_subtarea):
-        """
-        Busca y elimina una subtarea de cualquier árbol.
-
-        :param id_subtarea: ID de la subtarea.
-        :return: Nodo eliminado o None.
-        """
-
-        for raiz in (
-            self.arboles_subtareas.values()
-        ):
-
-            resultado = self._eliminar_de_nodo(
-                raiz,
-                id_subtarea
+            accion = Accion(
+                Accion.ELIMINAR,
+                f"Se eliminó la tarea {id_tarea}",
+                copia
             )
 
-            if resultado is not None:
-                return resultado
+            self.historial.registrar_accion(
+                accion
+            )
 
-        return None
+        return True
 
-    def _eliminar_de_nodo(
-        self,
-        nodo,
-        id_subtarea
-    ):
-        """
-        Busca y elimina recursivamente un nodo hijo.
+    def restaurar_tarea(self, tarea):
+        """Restaura una tarea eliminada."""
 
-        :return: Nodo eliminado o None.
-        """
+        if self.arbol.buscar(tarea.id) is not None:
+            return False
 
-        for indice, hijo in enumerate(
-            nodo.subtareas
-        ):
+        # Si tiene padre, este debe existir.
+        if tarea.padre_id is not None:
 
-            if hijo.id_subtarea == id_subtarea:
+            if self.arbol.buscar(
+                tarea.padre_id
+            ) is None:
 
-                return nodo.subtareas.pop(
-                    indice
+                raise ValueError(
+                    "No existe la tarea padre."
                 )
 
-            resultado = self._eliminar_de_nodo(
-                hijo,
-                id_subtarea
+        self.arbol.agregar(tarea)
+
+        if tarea.estado == "Pendiente":
+
+            if tarea.prioridad == Prioridad.URGENTE:
+                self.cola_prioridad.encolar(
+                    tarea
+                )
+
+            else:
+                self.cola_fifo.encolar(
+                    tarea
+                )
+
+        self._guardar()
+
+        return True
+
+    def cambiar_estado(
+        self,
+        id_tarea,
+        nuevo_estado,
+        usuario_id=None,
+        registrar_historial=True,
+        registrar_auditoria=True
+    ):
+        """Cambia el estado de una tarea."""
+
+        tarea = self._obtener_tarea(id_tarea)
+
+        if nuevo_estado not in Tarea.ESTADOS_VALIDOS:
+            raise ValueError(
+                "Estado inválido."
             )
 
-            if resultado is not None:
-                return resultado
+        estado_anterior = tarea.estado
 
-        return None
+        tarea.estado = nuevo_estado
+
+        self._reconstruir_colas()
+        self._guardar()
+
+        if registrar_historial and self.historial is not None:
+
+            accion = Accion(
+                Accion.CAMBIAR_ESTADO,
+                (
+                    f"Tarea {id_tarea}: "
+                    f"{estado_anterior} -> "
+                    f"{nuevo_estado}"
+                ),
+                {
+                    "tarea_id": id_tarea,
+                    "estado_anterior": estado_anterior,
+                    "estado_nuevo": nuevo_estado,
+                    "usuario_id": usuario_id,
+                },
+                usuario_id
+            )
+
+            self.historial.registrar_accion(
+                accion
+            )
+
+        if registrar_auditoria and self.auditoria is not None:
+
+            self.auditoria.registrar(
+                usuario_id,
+                f"CAMBIAR_ESTADO:{nuevo_estado}",
+                id_tarea
+            )
+
+        return tarea
+
+    def puede_modificar_estado(
+        self,
+        tarea,
+        usuario_id
+    ):
+        """
+        Determina si un usuario puede cambiar
+        el estado de una tarea.
+
+        Administrador:
+            Puede modificar cualquier tarea.
+
+        Usuario normal:
+            Solo puede modificar tareas asignadas a él.
+        """
+
+        if self.usuario_service is None:
+            return False
+
+        usuario = self.usuario_service.buscar_usuario(
+            usuario_id
+        )
+
+        if usuario is None:
+            return False
+
+        if usuario.rol == "Administrador":
+            return True
+
+        return (
+            usuario.rol == "Usuario"
+            and tarea.responsable_id == usuario_id
+        )
+
+    def procesar_siguiente(
+        self,
+        usuario_id=None
+    ):
+        """
+        Procesa la siguiente tarea.
+
+        Las tareas urgentes tienen prioridad sobre
+        las tareas regulares.
+        """
+
+        if not self.cola_prioridad.esta_vacia():
+
+            tarea = self.cola_prioridad.desencolar()
+
+        elif not self.cola_fifo.esta_vacia():
+
+            tarea = self.cola_fifo.desencolar()
+
+        else:
+            return None
+
+        tarea.estado = "En ejecución"
+
+        self._guardar()
+
+        return tarea
+
+    def aplicar_sla(self, usuario_id=None):
+        """
+        Incrementa los ciclos de espera de las tareas
+        regulares.
+
+        Si una tarea alcanza LIMITE_SLA, se escala
+        automáticamente a la cola de prioridad.
+        """
+
+        escaladas = []
+
+        tareas_regulares = self.cola_fifo.listar()
+
+        # Reconstruimos la cola para modificarla
+        # de forma segura.
+        nueva_cola = ColaFIFO()
+
+        for tarea in tareas_regulares:
+
+            tarea.ciclos_espera += 1
+
+            if tarea.ciclos_espera >= self.LIMITE_SLA:
+
+                tarea.ciclos_espera = 0
+
+                tarea.prioridad = Prioridad.ALTA
+
+                self.cola_prioridad.encolar(
+                    tarea
+                )
+
+                escaladas.append(tarea)
+
+                if self.auditoria is not None:
+
+                    self.auditoria.registrar(
+                        usuario_id,
+                        "ESCALAMIENTO_SLA",
+                        tarea.id
+                    )
+
+            else:
+                nueva_cola.encolar(tarea)
+
+        self.cola_fifo = nueva_cola
+
+        self._guardar()
+
+        return escaladas
+
+    def _reconstruir_colas(self):
+        """Reconstruye ambas colas desde las tareas actuales."""
+
+        self.cola_fifo = ColaFIFO()
+        self.cola_prioridad = ColaPrioridad()
+
+        for tarea in self.arbol.listar():
+
+            if tarea.estado != "Pendiente":
+                continue
+
+            if tarea.prioridad == Prioridad.URGENTE:
+
+                self.cola_prioridad.encolar(
+                    tarea
+                )
+
+            else:
+
+                self.cola_fifo.encolar(
+                    tarea
+                )
+
+    def listar_arbol(self):
+        """Devuelve la representación jerárquica del árbol."""
+
+        return self.arbol.mostrar_arbol()
+
+    def obtener_subtareas(self, id_tarea):
+        """Devuelve las subtareas de una tarea."""
+
+        return self.arbol.obtener_subtareas(
+            id_tarea
+        )
+
+    def ordenar_por_id(self, algoritmo="merge"):
+        """Ordena las tareas por ID."""
+
+        tareas = self.arbol.listar()
+
+        clave = lambda tarea: tarea.id
+
+        if algoritmo == "burbuja":
+            return OrdenadorTareas.burbuja(
+                tareas,
+                clave
+            )
+
+        if algoritmo == "merge":
+            return OrdenadorTareas.merge_sort(
+                tareas,
+                clave
+            )
+
+        if algoritmo == "quick":
+            return OrdenadorTareas.quick_sort(
+                tareas,
+                clave
+            )
+
+        raise ValueError(
+            "Algoritmo inválido."
+        )
+
+    def ordenar_por_prioridad(
+        self,
+        algoritmo="merge"
+    ):
+        """Ordena las tareas por prioridad."""
+
+        tareas = self.arbol.listar()
+
+        clave = lambda tarea: -int(
+            tarea.prioridad
+        )
+
+        if algoritmo == "burbuja":
+            return OrdenadorTareas.burbuja(
+                tareas,
+                clave
+            )
+
+        if algoritmo == "merge":
+            return OrdenadorTareas.merge_sort(
+                tareas,
+                clave
+            )
+
+        if algoritmo == "quick":
+            return OrdenadorTareas.quick_sort(
+                tareas,
+                clave
+            )
+
+        raise ValueError(
+            "Algoritmo inválido."
+        )

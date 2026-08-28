@@ -1,49 +1,37 @@
-"""Definición de Prioridad."""
-
-from enum import Enum
+from enum import IntEnum
 
 
-class Prioridad(Enum):
-    """Clase que representa la prioridad de una tarea."""
+class Prioridad(IntEnum):
+    """Niveles de prioridad de las tareas."""
 
     BAJA = 1
     MEDIA = 2
     ALTA = 3
+    URGENTE = 4
 
     @classmethod
-    def desde_texto(cls, texto: str):
-        """
-        Crea una instancia de Prioridad a partir de un texto.
+    def desde_texto(cls, valor):
+        """Convierte un texto o número en una prioridad válida."""
 
-        :param texto: Texto que representa el nivel de prioridad.
-        :return: Valor correspondiente del Enum Prioridad.
-        :raises ValueError: Si la prioridad proporcionada no es válida.
-        """
+        texto = str(valor).strip().upper()
 
-        if isinstance(texto, cls):
-            return texto
-
-        mapping = {
-            "BAJA": cls.BAJA,
-            "MEDIA": cls.MEDIA,
-            "ALTA": cls.ALTA,
-            "NORMAL": cls.MEDIA
+        equivalencias = {
+            "1": cls.BAJA,
+            "2": cls.MEDIA,
+            "3": cls.ALTA,
+            "4": cls.URGENTE,
         }
 
-        texto_normalizado = str(texto).upper().strip()
+        if texto in equivalencias:
+            return equivalencias[texto]
 
-        if texto_normalizado not in mapping:
+        try:
+            return cls[texto]
+        except KeyError as exc:
             raise ValueError(
-                "La prioridad debe ser BAJA, MEDIA o ALTA."
-            )
-
-        return mapping[texto_normalizado]
+                "Prioridad inválida. "
+                "Use BAJA, MEDIA, ALTA o URGENTE."
+            ) from exc
 
     def __str__(self):
-        """
-        Devuelve el nombre de la prioridad.
-
-        :return: Nombre de la prioridad como texto.
-        """
-
         return self.name

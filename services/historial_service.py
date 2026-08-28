@@ -1,663 +1,265 @@
-"""Módulo encargado de administrar Deshacer, Rehacer y Auditoría."""
-
-from copy import deepcopy
-import csv
-
 from structures.pila import Pila
-from structures.nodo_arbol import NodoArbolTarea
+from models.accion import Accion
 
 
 class HistorialService:
-    """Gestiona el historial de acciones del sistema."""
+    """Gestiona las operaciones de Deshacer y Rehacer."""
 
-    def __init__(
-        self,
-        tarea_service=None,
-        usuario_service=None,
-        archivo_auditoria=None
-    ):
-        self.tarea_service = tarea_service
-        self.usuario_service = usuario_service
-        self.archivo_auditoria = archivo_auditoria
-
+    def __init__(self, auditoria_service=None):
         self.pila_deshacer = Pila()
         self.pila_rehacer = Pila()
+        self.usuario_service = None
+        self.tarea_service = None
+        self.auditoria_service = auditoria_service
 
-    # =========================================================
-    # CONFIGURACIÓN
-    # =========================================================
-
-    def establecer_tarea_service(self, tarea_service):
-        """Establece el servicio de tareas."""
-
-        self.tarea_service = tarea_service
-
-    def establecer_usuario_service(self, usuario_service):
-        """Establece el servicio de usuarios."""
+    def configurar(
+        self,
+        usuario_service=None,
+        tarea_service=None
+    ):
+        """Conecta el historial con los servicios del sistema."""
 
         self.usuario_service = usuario_service
-
-    def establecer_archivo_auditoria(self, archivo_auditoria):
-        """Establece el archivo donde se guarda la auditoría."""
-
-        self.archivo_auditoria = archivo_auditoria
-
-    # =========================================================
-    # AUDITORÍA
-    # =========================================================
-
-    def guardar_auditoria(self, accion):
-        """Guarda una acción en el archivo de auditoría."""
-
-        if self.archivo_auditoria is None:
-            return
-
-        with open(
-            self.archivo_auditoria,
-            mode="a",
-            newline="",
-            encoding="utf-8"
-        ) as archivo:
-
-            writer = csv.writer(archivo)
-
-            writer.writerow([
-                accion.tipo,
-                accion.descripcion
-            ])
-
-    # =========================================================
-    # REGISTRAR
-    # =========================================================
+        self.tarea_service = tarea_service
 
     def registrar_accion(self, accion):
-        """
-        Registra una nueva acción.
+        """Registra una nueva acción."""
 
-        Una nueva acción elimina el historial de rehacer
-        y guarda la acción en la auditoría.
-        """
+        self.pila_deshacer.apilar(accion)
+        self.pila_rehacer.limpiar()
 
-        self.pila_deshacer.apilar(
-            accion
-        )
+    def deshacer_accion(self, usuario_id=None):
+        """Deshace la última acción."""
 
-        self.pila_rehacer = Pila()
-
-        self.guardar_auditoria(
-            accion
-        )
-
-    # =========================================================
-    # DESHACER
-    # =========================================================
-
-    def deshacer_accion(self):
-        """
-        Deshace la última acción registrada.
-
-        :return: Acción deshecha o None.
-        """
+        if self.pila_deshacer.esta_vacia():
+            return None
 
         accion = self.pila_deshacer.desapilar()
 
-        if accion is None:
-            return None
-
         try:
-
-            self._aplicar_deshacer(
-                accion
-            )
-
-            self.pila_rehacer.apilar(
-                accion
-            )
-
-            return accion
-
+            self._deshacer(accion)
         except Exception:
+            self.pila_deshacer.apilar(accion)
+            raise
 
-            self.pila_deshacer.apilar(
-                accion
-            )
+        self.pila_rehacer.apilar(accion)
 
+        self._auditar(
+            usuario_id,
+            "DESHACER",
+            accion
+        )
+
+        return accion
+
+    def rehacer_accion(self, usuario_id=None):
+        """Rehace la última acción."""
+
+        if self.pila_rehacer.esta_vacia():
             return None
-
-    # =========================================================
-    # REHACER
-    # =========================================================
-
-    def rehacer_accion(self):
-        """
-        Rehace la última acción deshecha.
-
-        :return: Acción rehecha o None.
-        """
 
         accion = self.pila_rehacer.desapilar()
 
-        if accion is None:
-            return None
-
         try:
-
-            self._aplicar_rehacer(
-                accion
-            )
-
-            self.pila_deshacer.apilar(
-                accion
-            )
-
-            return accion
-
+            self._rehacer(accion)
         except Exception:
+            self.pila_rehacer.apilar(accion)
+            raise
 
-            self.pila_rehacer.apilar(
-                accion
-            )
+        self.pila_deshacer.apilar(accion)
 
-            return None
+        self._auditar(
+            usuario_id,
+            "REHACER",
+            accion
+        )
 
-    # =========================================================
-    # APLICAR DESHACER
-    # =========================================================
+        return accion
 
-    def _aplicar_deshacer(self, accion):
-        """Aplica la operación inversa de una acción."""
+    def _deshacer(self, accion):
 
-        tipo = accion.tipo
+        if accion.tipo == Accion.AGREGAR:
+            self._deshacer_agregar(accion)
 
-        # =====================================================
-        # AGREGAR TAREA
-        # =====================================================
+        elif accion.tipo == Accion.ELIMINAR:
+            self._deshacer_eliminar(accion)
 
-        if tipo == "AGREGAR_TAREA":
+        elif accion.tipo == Accion.MODIFICAR:
+            self._deshacer_modificar(accion)
 
-            tarea = accion.datos
-
-            self.tarea_service.tareas = [
-                t
-                for t in self.tarea_service.tareas
-                if t.id_tarea != tarea.id_tarea
-            ]
-
-            self.tarea_service.arboles_subtareas.pop(
-                tarea.id_tarea,
-                None
-            )
-
-            self.tarea_service.guardar_datos()
-
-        # =====================================================
-        # ELIMINAR TAREA
-        # =====================================================
-
-        elif tipo == "ELIMINAR_TAREA":
-
-            tarea = accion.datos["tarea"]
-            arbol = accion.datos["arbol"]
-
-            if self.tarea_service.buscar_tarea(
-                tarea.id_tarea
-            ) is None:
-
-                self.tarea_service.tareas.append(
-                    deepcopy(tarea)
-                )
-
-                if arbol is not None:
-
-                    self.tarea_service.arboles_subtareas[
-                        tarea.id_tarea
-                    ] = deepcopy(arbol)
-
-                self.tarea_service.guardar_datos()
-
-        # =====================================================
-        # MODIFICAR TAREA
-        # =====================================================
-
-        elif tipo == "MODIFICAR_TAREA":
-
-            id_tarea = accion.datos["id_tarea"]
-            anterior = accion.datos["anterior"]
-
-            tarea = self.tarea_service.buscar_tarea(
-                id_tarea
-            )
-
-            if tarea is None:
-                raise ValueError(
-                    "La tarea no existe."
-                )
-
-            tarea.descripcion = anterior["descripcion"]
-            tarea.prioridad = anterior["prioridad"]
-            tarea.id_usuario = anterior["id_usuario"]
-
-            raiz = (
-                self.tarea_service
-                .arboles_subtareas
-                .get(id_tarea)
-            )
-
-            if raiz is not None:
-                raiz.descripcion = tarea.descripcion
-
-            self.tarea_service.guardar_datos()
-
-        # =====================================================
-        # AGREGAR SUBTAREA
-        # =====================================================
-
-        elif tipo == "AGREGAR_SUBTAREA":
-
-            id_subtarea = accion.datos["id_subtarea"]
-
-            resultado = self._eliminar_subtarea(
-                id_subtarea
-            )
-
-            if resultado is None:
-                raise ValueError(
-                    "No se encontró la subtarea."
-                )
-
-            self.tarea_service.guardar_datos()
-
-        # =====================================================
-        # ELIMINAR SUBTAREA
-        # =====================================================
-
-        elif tipo == "ELIMINAR_SUBTAREA":
-
-            nodo = accion.datos["nodo"]
-
-            if nodo.id_padre is None:
-                raise ValueError(
-                    "La subtarea no tiene padre."
-                )
-
-            padre = self.tarea_service.buscar_subtarea(
-                nodo.id_padre
-            )
-
-            if padre is None:
-                raise ValueError(
-                    "No se encontró el padre de la subtarea."
-                )
-
-            if self.tarea_service.buscar_subtarea(
-                nodo.id_subtarea
-            ) is not None:
-                raise ValueError(
-                    "La subtarea ya existe."
-                )
-
-            padre.subtareas.append(
-                deepcopy(nodo)
-            )
-
-            self.tarea_service.guardar_datos()
-
-        # =====================================================
-        # AGREGAR USUARIO
-        # =====================================================
-
-        elif tipo == "AGREGAR_USUARIO":
-
-            usuario = accion.datos
-
-            if self.usuario_service.lista_usuarios.buscar(
-                usuario.id
-            ) is not None:
-
-                self.usuario_service.lista_usuarios.eliminar(
-                    usuario.id
-                )
-
-                self.usuario_service.repository.guardar_usuarios(
-                    self.usuario_service.lista_usuarios
-                )
-
-        # =====================================================
-        # ELIMINAR USUARIO
-        # =====================================================
-
-        elif tipo == "ELIMINAR_USUARIO":
-
-            usuario = accion.datos
-
-            if self.usuario_service.lista_usuarios.buscar(
-                usuario.id
-            ) is None:
-
-                self.usuario_service.lista_usuarios.insertar(
-                    deepcopy(usuario)
-                )
-
-                self.usuario_service.repository.guardar_usuarios(
-                    self.usuario_service.lista_usuarios
-                )
-
-        # =====================================================
-        # MODIFICAR USUARIO
-        # =====================================================
-
-        elif tipo == "MODIFICAR_USUARIO":
-
-            anterior = accion.datos["anterior"]
-
-            usuario = self.usuario_service.lista_usuarios.buscar(
-                anterior.id
-            )
-
-            if usuario is None:
-                raise ValueError(
-                    "El usuario no existe."
-                )
-
-            self.usuario_service.lista_usuarios.modificar(
-                anterior.id,
-                anterior.nombre,
-                anterior.rol
-            )
-
-            self.usuario_service.repository.guardar_usuarios(
-                self.usuario_service.lista_usuarios
-            )
+        elif accion.tipo == Accion.CAMBIAR_ESTADO:
+            self._deshacer_estado(accion)
 
         else:
-
             raise ValueError(
-                f"Tipo de acción no soportado: {tipo}"
+                f"Tipo de acción no soportado: {accion.tipo}"
             )
 
-    # =========================================================
-    # APLICAR REHACER
-    # =========================================================
+    def _rehacer(self, accion):
 
-    def _aplicar_rehacer(self, accion):
-        """Vuelve a aplicar la acción original."""
+        if accion.tipo == Accion.AGREGAR:
+            self._rehacer_agregar(accion)
 
-        tipo = accion.tipo
+        elif accion.tipo == Accion.ELIMINAR:
+            self._rehacer_eliminar(accion)
 
-        # =====================================================
-        # AGREGAR TAREA
-        # =====================================================
+        elif accion.tipo == Accion.MODIFICAR:
+            self._rehacer_modificar(accion)
 
-        if tipo == "AGREGAR_TAREA":
-
-            tarea = accion.datos
-
-            if self.tarea_service.buscar_tarea(
-                tarea.id_tarea
-            ) is None:
-
-                tarea_nueva = deepcopy(
-                    tarea
-                )
-
-                self.tarea_service.tareas.append(
-                    tarea_nueva
-                )
-
-                self.tarea_service.arboles_subtareas[
-                    tarea.id_tarea
-                ] = NodoArbolTarea(
-                    id_subtarea=tarea.id_tarea,
-                    descripcion=tarea.descripcion,
-                    id_padre=None,
-                    completada=(
-                        tarea.estado == "Finalizada"
-                    )
-                )
-
-                self.tarea_service.guardar_datos()
-
-        # =====================================================
-        # ELIMINAR TAREA
-        # =====================================================
-
-        elif tipo == "ELIMINAR_TAREA":
-
-            tarea = accion.datos["tarea"]
-
-            self.tarea_service.tareas = [
-                t
-                for t in self.tarea_service.tareas
-                if t.id_tarea != tarea.id_tarea
-            ]
-
-            self.tarea_service.arboles_subtareas.pop(
-                tarea.id_tarea,
-                None
-            )
-
-            self.tarea_service.guardar_datos()
-
-        # =====================================================
-        # MODIFICAR TAREA
-        # =====================================================
-
-        elif tipo == "MODIFICAR_TAREA":
-
-            id_tarea = accion.datos["id_tarea"]
-            nuevo = accion.datos["nuevo"]
-
-            tarea = self.tarea_service.buscar_tarea(
-                id_tarea
-            )
-
-            if tarea is None:
-                raise ValueError(
-                    "La tarea no existe."
-                )
-
-            tarea.descripcion = nuevo["descripcion"]
-            tarea.prioridad = nuevo["prioridad"]
-            tarea.id_usuario = nuevo["id_usuario"]
-
-            raiz = (
-                self.tarea_service
-                .arboles_subtareas
-                .get(id_tarea)
-            )
-
-            if raiz is not None:
-                raiz.descripcion = tarea.descripcion
-
-            self.tarea_service.guardar_datos()
-
-        # =====================================================
-        # AGREGAR SUBTAREA
-        # =====================================================
-
-        elif tipo == "AGREGAR_SUBTAREA":
-
-            id_subtarea = accion.datos["id_subtarea"]
-            id_padre = accion.datos["id_padre"]
-            nodo = accion.datos["subtarea"]
-
-            if self.tarea_service.buscar_subtarea(
-                id_subtarea
-            ) is not None:
-                raise ValueError(
-                    "La subtarea ya existe."
-                )
-
-            padre = self.tarea_service.buscar_subtarea(
-                id_padre
-            )
-
-            if padre is None:
-                raise ValueError(
-                    "No se encontró el padre."
-                )
-
-            padre.subtareas.append(
-                deepcopy(nodo)
-            )
-
-            self.tarea_service.guardar_datos()
-
-        # =====================================================
-        # ELIMINAR SUBTAREA
-        # =====================================================
-
-        elif tipo == "ELIMINAR_SUBTAREA":
-
-            nodo = accion.datos["nodo"]
-
-            resultado = self._eliminar_subtarea(
-                nodo.id_subtarea
-            )
-
-            if resultado is None:
-                raise ValueError(
-                    "No se encontró la subtarea."
-                )
-
-            self.tarea_service.guardar_datos()
-
-        # =====================================================
-        # AGREGAR USUARIO
-        # =====================================================
-
-        elif tipo == "AGREGAR_USUARIO":
-
-            usuario = accion.datos
-
-            if self.usuario_service.lista_usuarios.buscar(
-                usuario.id
-            ) is None:
-
-                self.usuario_service.lista_usuarios.insertar(
-                    deepcopy(usuario)
-                )
-
-                self.usuario_service.repository.guardar_usuarios(
-                    self.usuario_service.lista_usuarios
-                )
-
-        # =====================================================
-        # ELIMINAR USUARIO
-        # =====================================================
-
-        elif tipo == "ELIMINAR_USUARIO":
-
-            usuario = accion.datos
-
-            if self.usuario_service.lista_usuarios.buscar(
-                usuario.id
-            ) is not None:
-
-                self.usuario_service.lista_usuarios.eliminar(
-                    usuario.id
-                )
-
-                self.usuario_service.repository.guardar_usuarios(
-                    self.usuario_service.lista_usuarios
-                )
-
-        # =====================================================
-        # MODIFICAR USUARIO
-        # =====================================================
-
-        elif tipo == "MODIFICAR_USUARIO":
-
-            nuevo = accion.datos["nuevo"]
-
-            usuario = self.usuario_service.lista_usuarios.buscar(
-                nuevo.id
-            )
-
-            if usuario is None:
-                raise ValueError(
-                    "El usuario no existe."
-                )
-
-            self.usuario_service.lista_usuarios.modificar(
-                nuevo.id,
-                nuevo.nombre,
-                nuevo.rol
-            )
-
-            self.usuario_service.repository.guardar_usuarios(
-                self.usuario_service.lista_usuarios
-            )
+        elif accion.tipo == Accion.CAMBIAR_ESTADO:
+            self._rehacer_estado(accion)
 
         else:
-
             raise ValueError(
-                f"Tipo de acción no soportado: {tipo}"
+                f"Tipo de acción no soportado: {accion.tipo}"
             )
 
-    # =========================================================
-    # ELIMINAR SUBTAREA AUXILIAR
-    # =========================================================
+    def _es_usuario(self, objeto):
+        return (
+            self.usuario_service is not None
+            and self.usuario_service.buscar_usuario(
+                objeto.id
+            ) is not None
+        )
 
-    def _eliminar_subtarea(self, id_subtarea):
-        """
-        Busca y elimina una subtarea de cualquier árbol.
+    def _deshacer_agregar(self, accion):
 
-        :param id_subtarea: ID de la subtarea.
-        :return: Nodo eliminado o None.
-        """
+        objeto = accion.datos
 
-        for raiz in (
-            self.tarea_service.arboles_subtareas.values()
-        ):
-
-            resultado = self._eliminar_de_nodo(
-                raiz,
-                id_subtarea
+        if self.usuario_service is not None:
+            usuario = self.usuario_service.buscar_usuario(
+                objeto.id
             )
 
-            if resultado is not None:
-                return resultado
-
-        return None
-
-    def _eliminar_de_nodo(
-        self,
-        nodo,
-        id_subtarea
-    ):
-        """Busca y elimina recursivamente un nodo hijo."""
-
-        for indice, hijo in enumerate(
-            nodo.subtareas
-        ):
-
-            if hijo.id_subtarea == id_subtarea:
-
-                return nodo.subtareas.pop(
-                    indice
+            if usuario is not None:
+                self.usuario_service.eliminar_usuario(
+                    objeto.id,
+                    registrar_historial=False
                 )
+                return
 
-            resultado = self._eliminar_de_nodo(
-                hijo,
-                id_subtarea
+        if self.tarea_service is not None:
+            self.tarea_service.eliminar_tarea(
+                objeto.id,
+                registrar_historial=False
             )
 
-            if resultado is not None:
-                return resultado
+    def _deshacer_eliminar(self, accion):
 
-        return None
+        objeto = accion.datos
 
-    # =========================================================
-    # MOSTRAR HISTORIAL
-    # =========================================================
+        if self.usuario_service is not None:
+            if (
+                self.usuario_service.buscar_usuario(
+                    objeto.id
+                )
+                is None
+                and hasattr(objeto, "password")
+            ):
+                self.usuario_service.restaurar_usuario(
+                    objeto
+                )
+                return
 
-    def mostrar_deshacer(self):
-        """Muestra las acciones disponibles para deshacer."""
+        if self.tarea_service is not None:
+            self.tarea_service.restaurar_tarea(
+                objeto
+            )
 
-        self.pila_deshacer.mostrar()
+    def _deshacer_modificar(self, accion):
 
-    def mostrar_rehacer(self):
-        """Muestra las acciones disponibles para rehacer."""
+        anterior = accion.datos["anterior"]
 
-        self.pila_rehacer.mostrar()
+        if hasattr(anterior, "password"):
+            self.usuario_service.restaurar_usuario(
+                anterior
+            )
+            return
+
+        self.tarea_service.restaurar_tarea(
+            anterior
+        )
+
+    def _deshacer_estado(self, accion):
+
+        datos = accion.datos
+
+        self.tarea_service.cambiar_estado(
+            datos["tarea_id"],
+            datos["estado_anterior"],
+            datos.get("usuario_id"),
+            registrar_historial=False,
+            registrar_auditoria=False
+        )
+
+    def _rehacer_agregar(self, accion):
+
+        objeto = accion.datos
+
+        if hasattr(objeto, "password"):
+            self.usuario_service.restaurar_usuario(
+                objeto
+            )
+        else:
+            self.tarea_service.restaurar_tarea(
+                objeto
+            )
+
+    def _rehacer_eliminar(self, accion):
+
+        objeto = accion.datos
+
+        if hasattr(objeto, "password"):
+            self.usuario_service.eliminar_usuario(
+                objeto.id,
+                registrar_historial=False
+            )
+        else:
+            self.tarea_service.eliminar_tarea(
+                objeto.id,
+                registrar_historial=False
+            )
+
+    def _rehacer_modificar(self, accion):
+
+        nuevo = accion.datos["nuevo"]
+
+        if hasattr(nuevo, "password"):
+            self.usuario_service.restaurar_usuario(
+                nuevo
+            )
+        else:
+            self.tarea_service.restaurar_tarea(
+                nuevo
+            )
+
+    def _rehacer_estado(self, accion):
+
+        datos = accion.datos
+
+        self.tarea_service.cambiar_estado(
+            datos["tarea_id"],
+            datos["estado_nuevo"],
+            datos.get("usuario_id"),
+            registrar_historial=False,
+            registrar_auditoria=False
+        )
+
+    def _auditar(self, usuario_id, accion_nombre, accion):
+
+        if self.auditoria_service is None:
+            return
+
+        tarea_id = None
+
+        if accion.tipo == Accion.CAMBIAR_ESTADO:
+            tarea_id = accion.datos.get("tarea_id")
+
+        elif hasattr(accion.datos, "padre_id"):
+            tarea_id = accion.datos.id
+
+        self.auditoria_service.registrar(
+            usuario_id,
+            accion_nombre,
+            tarea_id
+        )

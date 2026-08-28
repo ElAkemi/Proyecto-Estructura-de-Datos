@@ -1,94 +1,28 @@
-"""
-Este archivo tiene la funcion de tomar una lista de tareas y devolver una
-lista ordenada segun el criterio especificado y en la direccion deseada.
-"""
-
-
 class OrdenadorTareas:
+    """
+    Implementa tres algoritmos de ordenamiento:
+
+    1. Burbuja
+    2. Merge Sort
+    3. Quick Sort
+    """
 
     @staticmethod
-    def mergesort(
-        lista_tareas,
-        clave=lambda x: x.id_tarea,
-        reverso=False
-    ):
-        if len(lista_tareas) <= 1:
-            return list(lista_tareas)
-
-        medio = len(lista_tareas) // 2
-
-        izquierda = OrdenadorTareas.mergesort(
-            lista_tareas[:medio],
-            clave,
-            reverso
-        )
-
-        derecha = OrdenadorTareas.mergesort(
-            lista_tareas[medio:],
-            clave,
-            reverso
-        )
-
-        return OrdenadorTareas._mezclar(
-            izquierda,
-            derecha,
-            clave,
-            reverso
-        )
-
-    @staticmethod
-    def _mezclar(izq, der, clave, reverso):
-        resultado = []
-        i = j = 0
-
+    def burbuja(tareas, clave):
         """
-        Recorre ambas listas comparando elemento por elemento según el
-        criterio (clave) y el sentido (reverso). Inserta el elemento
-        correspondiente en resultado e incrementa el puntero adecuado.
+        Ordenamiento Bubble Sort.
+
+        Complejidad:
+            Mejor caso: O(n)
+            Caso promedio: O(n²)
+            Peor caso: O(n²)
+
+        Espacio adicional:
+            O(1)
         """
 
-        while i < len(izq) and j < len(der):
-
-            val_izq = clave(izq[i])
-            val_der = clave(der[j])
-
-            condicion = (
-                val_izq >= val_der
-                if reverso
-                else val_izq <= val_der
-            )
-
-            if condicion:
-                resultado.append(izq[i])
-                i += 1
-            else:
-                resultado.append(der[j])
-                j += 1
-
-        """
-        Copia cualquier elemento restante que haya quedado sin comparar
-        en la lista izquierda o derecha y retorna el resultado combinado.
-        """
-
-        resultado.extend(izq[i:])
-        resultado.extend(der[j:])
-
-        return resultado
-
-    @staticmethod
-    def bubblesort(
-        lista_tareas,
-        clave=lambda x: x.id_tarea,
-        reverso=False
-    ):
-        copia = list(lista_tareas)
-        n = len(copia)
-
-        """
-        Repasa la lista varias veces. En cada pasada (controlada por 'i'),
-        compara pares adyacentes e intercambia si están en el orden incorrecto,
-        moviendo los elementos más "grandes" (o pequeños, según 'reverso') hacia el final.
-        """
+        resultado = list(tareas)
+        n = len(resultado)
 
         for i in range(n):
 
@@ -96,19 +30,12 @@ class OrdenadorTareas:
 
             for j in range(0, n - i - 1):
 
-                val_actual = clave(copia[j])
-                val_siguiente = clave(copia[j + 1])
-
-                condicion = (
-                    val_actual < val_siguiente
-                    if reverso
-                    else val_actual > val_siguiente
-                )
-
-                if condicion:
-                    copia[j], copia[j + 1] = (
-                        copia[j + 1],
-                        copia[j]
+                if clave(resultado[j]) > clave(
+                    resultado[j + 1]
+                ):
+                    resultado[j], resultado[j + 1] = (
+                        resultado[j + 1],
+                        resultado[j]
                     )
 
                     intercambio = True
@@ -116,69 +43,113 @@ class OrdenadorTareas:
             if not intercambio:
                 break
 
-        return copia
+        return resultado
+
+    @classmethod
+    def merge_sort(cls, tareas, clave):
+        """
+        Ordenamiento Merge Sort.
+
+        Complejidad:
+            Mejor caso: O(n log n)
+            Caso promedio: O(n log n)
+            Peor caso: O(n log n)
+
+        Espacio adicional:
+            O(n)
+        """
+
+        if len(tareas) <= 1:
+            return list(tareas)
+
+        mitad = len(tareas) // 2
+
+        izquierda = cls.merge_sort(
+            tareas[:mitad],
+            clave
+        )
+
+        derecha = cls.merge_sort(
+            tareas[mitad:],
+            clave
+        )
+
+        return cls._mezclar(
+            izquierda,
+            derecha,
+            clave
+        )
 
     @staticmethod
-    def quicksort(
-        lista_tareas,
-        clave=lambda x: x.id_tarea,
-        reverso=False
-    ):
-        """
-        Toma un elemento como "pivote" y divide el resto en dos grupos:
-        menores y mayores. Luego se repite el proceso en cada subgrupo
-        hasta que todo esté ordenado.
-        """
+    def _mezclar(izquierda, derecha, clave):
 
-        if len(lista_tareas) <= 1:
-            return list(lista_tareas)
+        resultado = []
 
-        pivote = lista_tareas[len(lista_tareas) // 2]
-        val_pivote = clave(pivote)
+        i = 0
+        j = 0
 
-        menores = []
-        iguales = []
-        mayores = []
+        while i < len(izquierda) and j < len(derecha):
 
-        for elem in lista_tareas:
-
-            v = clave(elem)
-
-            if v == val_pivote:
-                iguales.append(elem)
-
-            elif v < val_pivote:
-                menores.append(elem)
+            if clave(izquierda[i]) <= clave(derecha[j]):
+                resultado.append(izquierda[i])
+                i += 1
 
             else:
-                mayores.append(elem)
+                resultado.append(derecha[j])
+                j += 1
 
-        if reverso:
+        while i < len(izquierda):
+            resultado.append(izquierda[i])
+            i += 1
 
-            return (
-                OrdenadorTareas.quicksort(
-                    mayores,
-                    clave,
-                    reverso
-                )
-                + iguales
-                + OrdenadorTareas.quicksort(
-                    menores,
-                    clave,
-                    reverso
-                )
-            )
+        while j < len(derecha):
+            resultado.append(derecha[j])
+            j += 1
+
+        return resultado
+
+    @classmethod
+    def quick_sort(cls, tareas, clave):
+        """
+        Ordenamiento Quick Sort.
+
+        Complejidad:
+            Mejor caso: O(n log n)
+            Caso promedio: O(n log n)
+            Peor caso: O(n²)
+
+        Espacio:
+            O(n) debido a las listas auxiliares
+            utilizadas en esta implementación.
+        """
+
+        if len(tareas) <= 1:
+            return list(tareas)
+
+        pivote = tareas[len(tareas) // 2]
+
+        valor_pivote = clave(pivote)
+
+        menores = [
+            tarea
+            for tarea in tareas
+            if clave(tarea) < valor_pivote
+        ]
+
+        iguales = [
+            tarea
+            for tarea in tareas
+            if clave(tarea) == valor_pivote
+        ]
+
+        mayores = [
+            tarea
+            for tarea in tareas
+            if clave(tarea) > valor_pivote
+        ]
 
         return (
-            OrdenadorTareas.quicksort(
-                menores,
-                clave,
-                reverso
-            )
+            cls.quick_sort(menores, clave)
             + iguales
-            + OrdenadorTareas.quicksort(
-                mayores,
-                clave,
-                reverso
-            )
+            + cls.quick_sort(mayores, clave)
         )

@@ -1,67 +1,180 @@
-"""Módulo para la gestión de la estructura de árbol de tareas."""
-
-from structures.nodo_arbol import NodoArbolTarea
+from structures.nodo_arbol import NodoArbol
 
 
 class ArbolTareas:
-    """Clase para la representación y gestión de la estructura
-    de árbol de tareas.
+    """
+    Árbol general utilizado para representar
+    tareas y sus subtareas.
     """
 
-    def __init__(self, id_raiz: int, descripcion: str):
+    def __init__(self):
+        self.raices = []
+
+    def agregar(self, tarea):
         """
-        Inicializa la raíz del árbol.
+        Agrega una tarea al árbol.
 
-        :param id_raiz: Identificador de la tarea raíz.
-        :param descripcion: Descripción de la tarea raíz.
-        :return: None.
-        """
-
-        self.raiz = NodoArbolTarea(
-            id_subtarea=id_raiz,
-            descripcion=descripcion,
-            id_padre=None
-        )
-
-    def agregar_subtarea(
-        self,
-        id_subtarea: int,
-        id_padre: int,
-        descripcion: str,
-        completada: bool = False
-    ) -> bool:
-        """
-        Inserta una nueva subtarea de forma recursiva desde la raíz.
-
-        :param id_subtarea: Identificador de la nueva subtarea.
-        :param id_padre: Identificador de la tarea padre.
-        :param descripcion: Descripción de la subtarea.
-        :param completada: Estado inicial de la subtarea.
-        :return: True si se agregó correctamente, False en caso contrario.
+        Si no tiene padre, se agrega como raíz.
+        Si tiene padre, se agrega como hijo de ese nodo.
         """
 
-        return self.raiz.agregar_subtarea(
-            id_padre,
-            id_subtarea,
-            descripcion,
-            completada
-        )
+        nuevo_nodo = NodoArbol(tarea)
 
-    def buscar_nodo(self, id_subtarea: int):
+        # Tarea principal.
+        if tarea.padre_id is None:
+            self.raices.append(nuevo_nodo)
+            return True
+
+        # Buscar el padre.
+        nodo_padre = self.buscar_nodo(tarea.padre_id)
+
+        if nodo_padre is None:
+            return False
+
+        nodo_padre.hijos.append(nuevo_nodo)
+
+        return True
+
+    def buscar_nodo(self, tarea_id, nodos=None):
         """
-        Busca un nodo dentro del árbol según su ID.
+        Busca un nodo utilizando RECURSIVIDAD.
 
-        :param id_subtarea: Identificador del nodo que se desea buscar.
-        :return: Nodo encontrado o None si no existe.
+        Este método recorre todos los niveles del árbol.
         """
 
-        return self.raiz.buscar_nodo(id_subtarea)
+        if nodos is None:
+            nodos = self.raices
 
-    def obtener_todas(self) -> list:
+        for nodo in nodos:
+
+            # Encontramos la tarea.
+            if nodo.tarea.id == tarea_id:
+                return nodo
+
+            # Buscar recursivamente dentro de sus hijos.
+            encontrado = self.buscar_nodo(
+                tarea_id,
+                nodo.hijos
+            )
+
+            if encontrado is not None:
+                return encontrado
+
+        return None
+
+    def buscar(self, tarea_id):
+        """Busca una tarea y devuelve el objeto Tarea."""
+
+        nodo = self.buscar_nodo(tarea_id)
+
+        if nodo is None:
+            return None
+
+        return nodo.tarea
+
+    def listar_recursivo(self, nodos=None, nivel=0):
         """
-        Obtiene todas las tareas almacenadas en el árbol.
+        Recorre recursivamente todo el árbol.
 
-        :return: Lista con la información de todas las tareas.
+        Devuelve tuplas:
+            (nivel, tarea)
+
+        Esto permite representar visualmente
+        la jerarquía de subtareas.
         """
 
-        return self.raiz.obtener_todas() if self.raiz else []
+        if nodos is None:
+            nodos = self.raices
+
+        resultado = []
+
+        for nodo in nodos:
+
+            resultado.append(
+                (nivel, nodo.tarea)
+            )
+
+            # Recorrido recursivo.
+            resultado.extend(
+                self.listar_recursivo(
+                    nodo.hijos,
+                    nivel + 1
+                )
+            )
+
+        return resultado
+
+    def eliminar(self, tarea_id, nodos=None):
+        """
+        Elimina una tarea del árbol utilizando recursividad.
+
+        Si la tarea tiene subtareas, se elimina
+        el subárbol completo.
+        """
+
+        if nodos is None:
+            nodos = self.raices
+
+        for indice, nodo in enumerate(nodos):
+
+            if nodo.tarea.id == tarea_id:
+                nodos.pop(indice)
+                return True
+
+            # Buscar recursivamente en los hijos.
+            if self.eliminar(
+                tarea_id,
+                nodo.hijos
+            ):
+                return True
+
+        return False
+
+    def listar(self):
+        """Devuelve todas las tareas mediante recorrido recursivo."""
+
+        resultado = self.listar_recursivo()
+
+        return [
+            tarea
+            for _, tarea in resultado
+        ]
+
+    def obtener_subtareas(self, tarea_id):
+        """
+        Devuelve directamente las subtareas de una tarea.
+        """
+
+        nodo = self.buscar_nodo(tarea_id)
+
+        if nodo is None:
+            return []
+
+        return [
+            hijo.tarea
+            for hijo in nodo.hijos
+        ]
+
+    def mostrar_arbol(self):
+        """
+        Genera una representación textual del árbol.
+        """
+
+        resultado = []
+
+        for nivel, tarea in self.listar_recursivo():
+
+            sangria = "    " * nivel
+
+            resultado.append(
+                f"{sangria}- "
+                f"[{tarea.id}] "
+                f"{tarea.descripcion}"
+            )
+
+        return resultado
+
+    def esta_vacio(self):
+        """Indica si el árbol está vacío."""
+
+        return len(self.raices) == 0

@@ -1,0 +1,3 @@
+id,prioridad,responsable_id,descripcion,estado,padre_id,ciclos_espera
+1,ALTA,2,Programar el main,Completada,,0
+2,MEDIA,2,programar csv,Pendiente,,0

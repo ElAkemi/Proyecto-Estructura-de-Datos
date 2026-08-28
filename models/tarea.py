@@ -1,100 +1,70 @@
-"""Módulo para la gestión de tareas."""
-
 from models.prioridad import Prioridad
 
 
 class Tarea:
-    """Clase que representa una tarea dentro del sistema."""
+    """Representa una tarea del Workflow Manager."""
+
+    ESTADOS_VALIDOS = (
+        "Pendiente",
+        "En ejecución",
+        "Completada",
+        "Cancelada",
+    )
 
     def __init__(
         self,
-        id_tarea: int,
-        descripcion: str,
-        prioridad: Prioridad,
-        id_usuario: int,
-        estado: str = "Pendiente",
-        ciclos_espera: int = 0
+        id,
+        prioridad,
+        responsable_id,
+        descripcion,
+        estado="Pendiente",
+        padre_id=None,
+        ciclos_espera=0,
     ):
-        """
-        Inicializa una tarea con sus atributos.
-
-        :param id_tarea: Identificador único de la tarea.
-        :param descripcion: Descripción de la tarea.
-        :param prioridad: Nivel de prioridad.
-        :param id_usuario: ID del usuario responsable.
-        :param estado: Estado actual de la tarea.
-        :param ciclos_espera: Cantidad de ciclos de espera.
-        """
-
-        self.id_tarea = int(id_tarea)
-        self.descripcion = str(descripcion)
-
-        self.prioridad = (
-            Prioridad.desde_texto(prioridad)
-            if not isinstance(prioridad, Prioridad)
-            else prioridad
-        )
-
-        self.id_usuario = int(id_usuario)
-
-        self.estado = estado
-        self.ciclos_espera = int(ciclos_espera)
-
-    @property
-    def estado(self):
-        """
-        Obtiene el estado actual de la tarea.
-
-        :return: Estado de la tarea.
-        """
-
-        return self._estado
-
-    @estado.setter
-    def estado(self, valor):
-        """
-        Establece el estado de la tarea.
-
-        :param valor: Nuevo estado.
-        :return: None.
-        :raises ValueError: Si el estado no es válido.
-        """
-
-        estados_validos = (
-            "Pendiente",
-            "En Proceso",
-            "Finalizada"
-        )
-
-        if valor not in estados_validos:
+        if not isinstance(id, int) or id <= 0:
             raise ValueError(
-                "El estado debe ser Pendiente, En Proceso o Finalizada."
+                "El ID de la tarea debe ser un entero positivo."
             )
 
-        self._estado = valor
+        if not isinstance(responsable_id, int) or responsable_id <= 0:
+            raise ValueError(
+                "El responsable debe tener un ID válido."
+            )
 
-    def incrementar_ciclo_espera(self):
-        """
-        Incrementa el contador de ciclos de espera.
+        if not isinstance(descripcion, str) or not descripcion.strip():
+            raise ValueError(
+                "La descripción no puede estar vacía."
+            )
 
-        :return: None.
-        """
+        if estado not in self.ESTADOS_VALIDOS:
+            raise ValueError("Estado inválido.")
 
-        self.ciclos_espera += 1
+        self.id = id
+        self.prioridad = Prioridad.desde_texto(prioridad)
+        self.responsable_id = responsable_id
+        self.descripcion = descripcion.strip()
+        self.estado = estado
+        self.padre_id = padre_id
+        self.ciclos_espera = max(0, int(ciclos_espera))
+
+    def copiar(self):
+        """Devuelve una copia independiente de la tarea."""
+        return Tarea(
+            self.id,
+            self.prioridad,
+            self.responsable_id,
+            self.descripcion,
+            self.estado,
+            self.padre_id,
+            self.ciclos_espera,
+        )
 
     def __repr__(self):
-        """
-        Genera una representación textual de la tarea.
-
-        :return: Cadena con la información principal.
-        """
-
         return (
             f"Tarea("
-            f"ID={self.id_tarea}, "
-            f"Prioridad={self.prioridad.name}, "
-            f"Usuario={self.id_usuario}, "
-            f"Estado={self.estado}, "
-            f"Ciclos={self.ciclos_espera}, "
-            f"Desc='{self.descripcion}')"
+            f"id={self.id}, "
+            f"prioridad={self.prioridad.name}, "
+            f"responsable={self.responsable_id}, "
+            f"estado='{self.estado}'"
+            f")"
         )

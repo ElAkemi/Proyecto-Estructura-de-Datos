@@ -1,50 +1,126 @@
 import csv
+import os
+
 from models.usuario import Usuario
 
+
 class UsuarioRepository:
-    def __init__(self, archivo_csv):
-        self.archivo_csv = archivo_csv
+    """Gestiona la persistencia de usuarios mediante CSV."""
 
-    def guardar_usuarios(self, lista_usuarios):
-        with open(self.archivo_csv, mode="w", newline="", encoding="utf-8") as archivo:
-            writer = csv.writer(archivo)
+    ENCABEZADOS = [
+        "id",
+        "nombre",
+        "rol",
+        "password",
+    ]
 
-            for nodo in self.recorrer_lista_usuarios(lista_usuarios):
-                usuario = nodo.usuario
-                writer.writerow([usuario.id, usuario.nombre, usuario.rol])
+    def __init__(self, ruta="data/usuarios.csv"):
+        self.ruta = ruta
+        self._asegurar_archivo()
 
-    def cargar_usuarios(self, lista_usuarios):
-        try:
-            with open(self.archivo_csv, "r", newline="", encoding="utf-8") as archivo:
-                reader = csv.reader(archivo)
+    def _asegurar_archivo(self):
+        """Crea el directorio y archivo si no existen."""
 
-                for row in reader:
+        directorio = os.path.dirname(self.ruta)
 
-                    # La fila debe tener ID, nombre y rol
-                    if len(row) != 3:
-                        continue
+        if directorio:
+            os.makedirs(directorio, exist_ok=True)
 
-                    try:
-                        id = int(row[0])
-                        nombre = row[1]
-                        rol = row[2]
+        if not os.path.exists(self.ruta):
+            with open(
+                self.ruta,
+                "w",
+                newline="",
+                encoding="utf-8"
+            ) as archivo:
 
-                        usuario = Usuario(id, nombre, rol)
-                        lista_usuarios.insertar(usuario)
+                escritor = csv.writer(archivo)
+                escritor.writerow(self.ENCABEZADOS)
 
-                    except ValueError:
-                        # Ignorar registros inválidos del CSV
-                        continue
+    def guardar(self, usuarios):
+        """
+        Sobrescribe el archivo con el estado actual de usuarios.
 
-        except FileNotFoundError:
-            # Si el archivo no existe, no hay usuarios que cargar
-            pass
-                
-    def recorrer_lista_usuarios(self, lista_usuarios):
-        # Este método debería recorrer la lista de usuarios y devolver los nodos
-        # Aquí se asume que self.lista_usuarios es una instancia de ListaDoble
-        nodo_actual = lista_usuarios.cabeza
+        Args:
+            usuarios: iterable de objetos Usuario.
+        """
 
-        while nodo_actual is not None:
-            yield nodo_actual
-            nodo_actual = nodo_actual.siguiente
+        self._asegurar_archivo()
+
+        with open(
+            self.ruta,
+            "w",
+            newline="",
+            encoding="utf-8"
+        ) as archivo:
+
+            escritor = csv.writer(archivo)
+
+            escritor.writerow(self.ENCABEZADOS)
+
+            for usuario in usuarios:
+                escritor.writerow([
+                    usuario.id,
+                    usuario.nombre,
+                    usuario.rol,
+                    usuario.password,
+                ])
+
+    def cargar(self):
+        """
+        Carga todos los usuarios almacenados en el CSV.
+
+        Retorna:
+            Lista de objetos Usuario.
+        """
+
+        self._asegurar_archivo()
+
+        usuarios = []
+
+        with open(
+            self.ruta,
+            "r",
+            newline="",
+            encoding="utf-8"
+        ) as archivo:
+
+            lector = csv.DictReader(archivo)
+
+            for fila in lector:
+
+                if not fila.get("id"):
+                    continue
+
+                try:
+                    usuario = Usuario(
+                        id=int(fila["id"]),
+                        nombre=fila["nombre"],
+                        rol=fila["rol"],
+                        password=fila["password"],
+                    )
+
+                    usuarios.append(usuario)
+
+                except (ValueError, KeyError):
+                    # Una fila corrupta no debe provocar
+                    # que todo el sistema se cierre.
+                    continue
+
+        return usuarios
+
+    def obtener_por_id(self, id_usuario):
+        """
+        Busca un usuario directamente en el archivo.
+
+        Retorna:
+            Usuario o None.
+        """
+
+        usuarios = self.cargar()
+
+        for usuario in usuarios:
+            if usuario.id == id_usuario:
+                return usuario
+
+        return None

@@ -1,330 +1,160 @@
-"""Módulo encargado de la persistencia de tareas y subtareas en CSV."""
-
 import csv
 import os
 
 from models.tarea import Tarea
-from models.prioridad import Prioridad
-from structures.nodo_arbol import NodoArbolTarea
 
 
 class TareaRepository:
-    """Gestiona la lectura y escritura de tareas y subtareas en CSV."""
+    """Gestiona la persistencia de tareas mediante CSV."""
 
-    def __init__(self, archivo_csv="data/tareas.csv"):
-        """Inicializa el repositorio de tareas."""
+    ENCABEZADOS = [
+        "id",
+        "prioridad",
+        "responsable_id",
+        "descripcion",
+        "estado",
+        "padre_id",
+        "ciclos_espera",
+    ]
 
-        self.archivo_csv = archivo_csv
+    def __init__(self, ruta="data/tareas.csv"):
+        self.ruta = ruta
+        self._asegurar_archivo()
 
-    def guardar_tareas(
-        self,
-        tareas,
-        arboles_subtareas=None
-    ):
-        """
-        Guarda las tareas y sus subtareas en el archivo CSV.
+    def _asegurar_archivo(self):
+        """Crea el directorio y archivo si no existen."""
 
-        :param tareas: Lista de objetos Tarea.
-        :param arboles_subtareas: Diccionario de árboles de subtareas.
-        :return: None.
-        """
-
-        directorio = os.path.dirname(
-            self.archivo_csv
-        )
+        directorio = os.path.dirname(self.ruta)
 
         if directorio:
-            os.makedirs(
-                directorio,
-                exist_ok=True
-            )
+            os.makedirs(directorio, exist_ok=True)
 
-        if arboles_subtareas is None:
-            arboles_subtareas = {}
+        if not os.path.exists(self.ruta):
+            with open(
+                self.ruta,
+                "w",
+                newline="",
+                encoding="utf-8"
+            ) as archivo:
+
+                escritor = csv.writer(archivo)
+                escritor.writerow(self.ENCABEZADOS)
+
+    def guardar(self, tareas):
+        """
+        Sobrescribe el archivo con todas las tareas actuales.
+
+        Args:
+            tareas: iterable de objetos Tarea.
+        """
+
+        self._asegurar_archivo()
 
         with open(
-            self.archivo_csv,
-            mode="w",
+            self.ruta,
+            "w",
             newline="",
             encoding="utf-8"
         ) as archivo:
 
-            writer = csv.writer(archivo)
+            escritor = csv.writer(archivo)
 
-            writer.writerow([
-                "tipo",
-                "id_tarea",
-                "descripcion",
-                "prioridad",
-                "id_usuario",
-                "estado",
-                "ciclos_espera",
-                "id_subtarea",
-                "id_padre",
-                "completada"
-            ])
+            escritor.writerow(self.ENCABEZADOS)
 
             for tarea in tareas:
 
-                writer.writerow([
-                    "TAREA",
-                    tarea.id_tarea,
-                    tarea.descripcion,
-                    tarea.prioridad.name,
-                    tarea.id_usuario,
-                    tarea.estado,
-                    tarea.ciclos_espera,
-                    "",
-                    "",
+                padre_id = (
                     ""
-                ])
-
-                raiz = arboles_subtareas.get(
-                    tarea.id_tarea
+                    if tarea.padre_id is None
+                    else tarea.padre_id
                 )
 
-                if raiz is not None:
-                    self._guardar_subtareas(
-                        writer,
-                        raiz
-                    )
+                escritor.writerow([
+                    tarea.id,
+                    tarea.prioridad.name,
+                    tarea.responsable_id,
+                    tarea.descripcion,
+                    tarea.estado,
+                    padre_id,
+                    tarea.ciclos_espera,
+                ])
 
-    def _guardar_subtareas(
-        self,
-        writer,
-        nodo
-    ):
+    def cargar(self):
         """
-        Guarda recursivamente todas las subtareas.
+        Carga todas las tareas almacenadas.
 
-        :param writer: Escritor CSV.
-        :param nodo: Nodo padre actual.
-        :return: None.
+        Retorna:
+            Lista de objetos Tarea.
         """
 
-        for hijo in nodo.subtareas:
-
-            writer.writerow([
-                "SUBTAREA",
-                "",
-                hijo.descripcion,
-                "",
-                "",
-                "",
-                "",
-                hijo.id_subtarea,
-                hijo.id_padre,
-                hijo.completada
-            ])
-
-            self._guardar_subtareas(
-                writer,
-                hijo
-            )
-
-    def cargar_tareas(self):
-        """
-        Carga las tareas y reconstruye los árboles de subtareas.
-
-        :return:
-            Tupla con:
-            - lista de tareas
-            - diccionario de árboles de subtareas
-        """
+        self._asegurar_archivo()
 
         tareas = []
-        arboles_subtareas = {}
-        subtareas = []
-
-        if not os.path.exists(
-            self.archivo_csv
-        ):
-            return tareas, arboles_subtareas
 
         with open(
-            self.archivo_csv,
-            mode="r",
+            self.ruta,
+            "r",
             newline="",
             encoding="utf-8"
         ) as archivo:
 
-            reader = csv.DictReader(
-                archivo
-            )
+            lector = csv.DictReader(archivo)
 
-            for fila in reader:
+            for fila in lector:
+
+                if not fila.get("id"):
+                    continue
 
                 try:
+                    padre_id = fila.get("padre_id")
 
-                    tipo = fila.get(
-                        "tipo",
-                        ""
-                    ).strip().upper()
+                    if padre_id in ("", None):
+                        padre_id = None
+                    else:
+                        padre_id = int(padre_id)
 
-                    if tipo == "TAREA":
-
-                        id_tarea = int(
-                            fila["id_tarea"]
-                        )
-
-                        if any(
-                            tarea.id_tarea == id_tarea
-                            for tarea in tareas
-                        ):
-                            continue
-
-                        tarea = Tarea(
-                            id_tarea=id_tarea,
-                            descripcion=fila[
-                                "descripcion"
-                            ],
-                            prioridad=Prioridad.desde_texto(
-                                fila["prioridad"]
-                            ),
-                            id_usuario=int(
-                                fila["id_usuario"]
-                            ),
-                            estado=fila["estado"],
-                            ciclos_espera=int(
-                                fila.get(
-                                    "ciclos_espera",
-                                    0
-                                )
-                            )
-                        )
-
-                        tareas.append(
-                            tarea
-                        )
-
-                        arboles_subtareas[
-                            id_tarea
-                        ] = NodoArbolTarea(
-                            id_subtarea=id_tarea,
-                            descripcion=tarea.descripcion,
-                            id_padre=None,
-                            completada=(
-                                tarea.estado
-                                == "Finalizada"
-                            )
-                        )
-
-                    elif tipo == "SUBTAREA":
-
-                        id_subtarea = int(
-                            fila["id_subtarea"]
-                        )
-
-                        id_padre = int(
-                            fila["id_padre"]
-                        )
-
-                        descripcion = fila.get(
-                            "descripcion",
-                            ""
-                        ).strip()
-
-                        if not descripcion:
-                            descripcion = (
-                                "Subtarea sin descripción"
-                            )
-
-                        completada = (
-                            fila.get(
-                                "completada",
-                                "False"
-                            ).strip().lower()
-                            == "true"
-                        )
-
-                        subtareas.append({
-                            "id_subtarea": id_subtarea,
-                            "id_padre": id_padre,
-                            "descripcion": descripcion,
-                            "completada": completada
-                        })
-
-                except (
-                    ValueError,
-                    KeyError,
-                    TypeError
-                ):
-                    continue
-
-        pendientes = subtareas[:]
-
-        while pendientes:
-
-            progreso = False
-            restantes = []
-
-            for subtarea in pendientes:
-
-                id_subtarea = subtarea[
-                    "id_subtarea"
-                ]
-
-                id_padre = subtarea[
-                    "id_padre"
-                ]
-
-                existe = False
-
-                for raiz in arboles_subtareas.values():
-
-                    if raiz.buscar_nodo(
-                        id_subtarea
-                    ) is not None:
-
-                        existe = True
-                        break
-
-                if existe:
-                    continue
-
-                padre_encontrado = None
-
-                for raiz in arboles_subtareas.values():
-
-                    encontrado = raiz.buscar_nodo(
-                        id_padre
+                    ciclos = fila.get(
+                        "ciclos_espera",
+                        "0"
                     )
 
-                    if encontrado is not None:
-                        padre_encontrado = encontrado
-                        break
-
-                if padre_encontrado is None:
-
-                    restantes.append(
-                        subtarea
+                    tarea = Tarea(
+                        id=int(fila["id"]),
+                        prioridad=fila["prioridad"],
+                        responsable_id=int(
+                            fila["responsable_id"]
+                        ),
+                        descripcion=fila["descripcion"],
+                        estado=fila.get(
+                            "estado",
+                            "Pendiente"
+                        ),
+                        padre_id=padre_id,
+                        ciclos_espera=int(ciclos),
                     )
 
+                    tareas.append(tarea)
+
+                except (ValueError, KeyError):
+                    # Si existe una fila corrupta,
+                    # se ignora y se continúa con las demás.
                     continue
 
-                nuevo_nodo = NodoArbolTarea(
-                    id_subtarea=id_subtarea,
-                    descripcion=subtarea[
-                        "descripcion"
-                    ],
-                    id_padre=id_padre,
-                    completada=subtarea[
-                        "completada"
-                    ]
-                )
+        return tareas
 
-                padre_encontrado.subtareas.append(
-                    nuevo_nodo
-                )
+    def obtener_por_id(self, id_tarea):
+        """
+        Busca una tarea por ID.
 
-                progreso = True
+        Retorna:
+            Tarea o None.
+        """
 
-            if not progreso:
-                break
+        tareas = self.cargar()
 
-            pendientes = restantes
+        for tarea in tareas:
 
-        return (
-            tareas,
-            arboles_subtareas
-        )
+            if tarea.id == id_tarea:
+                return tarea
+
+        return None

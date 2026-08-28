@@ -1,283 +1,220 @@
-"""Módulo para la gestión de usuarios."""
-
-from copy import deepcopy
-
 from models.usuario import Usuario
 from models.accion import Accion
 from structures.lista_doble import ListaDoble
 
-from persistence.usuario_repository import UsuarioRepository
-
 
 class UsuarioService:
-    """
-    Servicio encargado de gestionar los usuarios del sistema.
-
-    Utiliza una única instancia compartida de HistorialService
-    para las operaciones de deshacer y rehacer.
-    """
+    """Gestiona los usuarios del sistema."""
 
     def __init__(
         self,
-        archivo_csv="data/usuarios.csv",
-        historial=None
+        usuario_repository,
+        historial_service=None
     ):
-        """Inicializa el servicio de usuarios."""
-
+        self.usuario_repository = usuario_repository
         self.lista_usuarios = ListaDoble()
+        self.historial = historial_service
 
-        self.repository = UsuarioRepository(
-            archivo_csv
-        )
+        self._cargar_usuarios()
 
-        self.historial = historial
+    def _cargar_usuarios(self):
+        """Carga los usuarios persistidos en la lista doble."""
 
-        self.repository.cargar_usuarios(
-            self.lista_usuarios
-        )
+        usuarios = self.usuario_repository.cargar()
 
-    # =========================================================
-    # CONFIGURACIÓN
-    # =========================================================
-
-    def establecer_historial(self, historial):
-        """Establece la instancia compartida de HistorialService."""
-
-        self.historial = historial
-
-    # =========================================================
-    # AGREGAR
-    # =========================================================
+        for usuario in usuarios:
+            self.lista_usuarios.insertar(usuario)
 
     def agregar_usuario(
         self,
-        id,
+        id_usuario,
         nombre,
         rol,
-        id_usuario_ejecutor=None
+        password,
+        registrar_historial=True
     ):
-        """Agrega un usuario al sistema."""
+        """Agrega un nuevo usuario."""
 
-        if not isinstance(id, int) or isinstance(id, bool):
+        if not isinstance(id_usuario, int):
+            raise ValueError("El ID debe ser un número entero.")
+
+        if id_usuario <= 0:
             raise ValueError(
-                "El ID debe ser un número entero."
+                "El ID debe ser un número positivo."
             )
 
-        if id <= 0:
+        if self.buscar_usuario(id_usuario) is not None:
             raise ValueError(
-                "El ID debe ser mayor que cero."
+                "Ya existe un usuario con ese ID."
             )
 
-        if self.lista_usuarios.buscar(id) is not None:
-            raise ValueError(
-                f"Ya existe un usuario con el ID {id}."
-            )
-
-        if (
-            not isinstance(nombre, str)
-            or not nombre.strip()
-        ):
+        if not isinstance(nombre, str) or not nombre.strip():
             raise ValueError(
                 "El nombre no puede estar vacío."
             )
 
-        if rol not in (
-            "Administrador",
-            "Usuario"
-        ):
+        if rol not in Usuario.ROLES_VALIDOS:
             raise ValueError(
-                "Rol inválido."
+                "El rol debe ser Administrador o Usuario."
+            )
+
+        if not isinstance(password, str) or not password:
+            raise ValueError(
+                "La contraseña no puede estar vacía."
             )
 
         usuario = Usuario(
-            id,
-            nombre.strip(),
-            rol
+            id_usuario,
+            nombre,
+            rol,
+            password
         )
 
-        if not self.lista_usuarios.insertar(
-            usuario
-        ):
+        if not self.lista_usuarios.insertar(usuario):
             raise ValueError(
-                f"Ya existe un usuario con el ID {id}."
+                "No fue posible agregar el usuario."
             )
 
-        self.repository.guardar_usuarios(
-            self.lista_usuarios
-        )
+        self._guardar()
 
-        if self.historial is not None:
-
+        if registrar_historial and self.historial is not None:
             accion = Accion(
-                "AGREGAR_USUARIO",
-                f"Se agregó el usuario: {id}",
-                deepcopy(usuario),
-                id_usuario_ejecutor
+                Accion.AGREGAR,
+                f"Se agregó el usuario {id_usuario}",
+                usuario.copiar()
             )
 
-            self.historial.registrar_accion(
-                accion
-            )
+            self.historial.registrar_accion(accion)
 
-        return True
+        return usuario
 
-    # =========================================================
-    # MODIFICAR
-    # =========================================================
+    def buscar_usuario(self, id_usuario):
+        """Busca un usuario por ID."""
+
+        return self.lista_usuarios.buscar(id_usuario)
+
+    def listar_usuarios(self):
+        """Devuelve todos los usuarios."""
+
+        return self.lista_usuarios.listar()
 
     def modificar_usuario(
         self,
-        id,
-        nuevo_nombre,
-        nuevo_rol,
-        id_usuario_ejecutor=None
+        id_usuario,
+        nombre,
+        rol,
+        password=None,
+        registrar_historial=True
     ):
         """Modifica un usuario existente."""
 
-        if not isinstance(id, int) or isinstance(id, bool):
-            raise ValueError(
-                "El ID debe ser un número entero."
-            )
-
-        usuario = self.lista_usuarios.buscar(id)
+        usuario = self.buscar_usuario(id_usuario)
 
         if usuario is None:
             raise ValueError(
-                "El usuario no existe."
+                "No existe un usuario con ese ID."
             )
 
-        if (
-            not isinstance(nuevo_nombre, str)
-            or not nuevo_nombre.strip()
-        ):
+        if not isinstance(nombre, str) or not nombre.strip():
             raise ValueError(
                 "El nombre no puede estar vacío."
             )
 
-        if nuevo_rol not in (
-            "Administrador",
-            "Usuario"
-        ):
+        if rol not in Usuario.ROLES_VALIDOS:
             raise ValueError(
-                "Rol inválido."
+                "El rol debe ser Administrador o Usuario."
             )
 
-        # Guardar estado anterior.
-        usuario_anterior = deepcopy(
-            usuario
-        )
+        usuario_anterior = usuario.copiar()
 
-        if not self.lista_usuarios.modificar(
-            id,
-            nuevo_nombre.strip(),
-            nuevo_rol
-        ):
+        if password is None:
+            password = usuario.password
+
+        if not isinstance(password, str) or not password:
             raise ValueError(
-                "No fue posible modificar el usuario."
+                "La contraseña no puede estar vacía."
             )
 
-        # Guardar estado nuevo.
-        usuario_nuevo = deepcopy(
-            self.lista_usuarios.buscar(id)
+        usuario_nuevo = Usuario(
+            id_usuario,
+            nombre,
+            rol,
+            password
         )
 
-        self.repository.guardar_usuarios(
-            self.lista_usuarios
-        )
+        self.lista_usuarios.modificar(usuario_nuevo)
 
-        if self.historial is not None:
+        self._guardar()
 
+        if registrar_historial and self.historial is not None:
             accion = Accion(
-                "MODIFICAR_USUARIO",
-                f"Se modificó el usuario: {id}",
+                Accion.MODIFICAR,
+                f"Se modificó el usuario {id_usuario}",
                 {
                     "anterior": usuario_anterior,
-                    "nuevo": usuario_nuevo
-                },
-                id_usuario_ejecutor
+                    "nuevo": usuario_nuevo.copiar(),
+                }
             )
 
-            self.historial.registrar_accion(
-                accion
-            )
+            self.historial.registrar_accion(accion)
+
+        return usuario
+    
+    def restaurar_usuario(self, usuario):
+        """Restaura un usuario eliminado."""
+
+        if self.buscar_usuario(usuario.id) is not None:
+            return False
+
+        if not self.lista_usuarios.insertar(usuario):
+            return False
+
+        self._guardar()
 
         return True
 
-    # =========================================================
-    # ELIMINAR
-    # =========================================================
+    def existe_usuario(self, id_usuario):
+        """Indica si existe un usuario."""
+
+        return self.buscar_usuario(id_usuario) is not None
 
     def eliminar_usuario(
         self,
-        id,
-        id_usuario_ejecutor=None
+        id_usuario,
+        registrar_historial=True
     ):
         """Elimina un usuario."""
 
-        if not isinstance(id, int) or isinstance(id, bool):
-            raise ValueError(
-                "El ID debe ser un número entero."
-            )
-
-        usuario = self.lista_usuarios.buscar(id)
+        usuario = self.buscar_usuario(id_usuario)
 
         if usuario is None:
             raise ValueError(
-                "El usuario no existe."
+                "No existe un usuario con ese ID."
             )
 
-        usuario_eliminado = deepcopy(
-            usuario
-        )
+        usuario_eliminado = usuario.copiar()
 
-        if not self.lista_usuarios.eliminar(id):
-            return False
+        if not self.lista_usuarios.eliminar(id_usuario):
+            raise ValueError(
+                "No fue posible eliminar el usuario."
+            )
 
-        self.repository.guardar_usuarios(
-            self.lista_usuarios
-        )
+        self._guardar()
 
-        if self.historial is not None:
-
+        if registrar_historial and self.historial is not None:
             accion = Accion(
-                "ELIMINAR_USUARIO",
-                f"Se eliminó el usuario: {id}",
-                usuario_eliminado,
-                id_usuario_ejecutor
+                Accion.ELIMINAR,
+                f"Se eliminó el usuario {id_usuario}",
+                usuario_eliminado
             )
 
-            self.historial.registrar_accion(
-                accion
-            )
+            self.historial.registrar_accion(accion)
 
         return True
 
-    # =========================================================
-    # BUSCAR
-    # =========================================================
+    def _guardar(self):
+        """Persiste todos los usuarios."""
 
-    def buscar_usuario(self, id):
-        """Busca un usuario por ID."""
-
-        if not isinstance(id, int) or isinstance(id, bool):
-            raise ValueError(
-                "El ID debe ser un número entero."
-            )
-
-        usuario = self.lista_usuarios.buscar(id)
-
-        if usuario is None:
-            raise ValueError(
-                "El usuario no existe."
-            )
-
-        return usuario
-
-    # =========================================================
-    # MOSTRAR
-    # =========================================================
-
-    def mostrar_usuarios(self):
-        """Muestra todos los usuarios registrados."""
-
-        self.lista_usuarios.mostrar()
+        self.usuario_repository.guardar(
+            self.lista_usuarios.listar()
+        )
