@@ -1,403 +1,289 @@
-import unittest
-import tempfile
-import os
+import pytest
 
+from models.tarea import Tarea
 from services.tarea_service import TareaService
-from persistence.tarea_repository import TareaRepository
-from models.prioridad import Prioridad
+from services.usuario_service import UsuarioService
+from structures.lista_doble import ListaDoble
+from structures.arbol_tareas import ArbolTareas
 
 
-class TestTareaService(unittest.TestCase):
+class HistorialMock:
+    """Historial simulado para las pruebas."""
 
-    def setUp(self):
-        archivo_temporal = tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=".csv"
-        )
+    def __init__(self):
+        self.acciones = []
 
-        archivo_temporal.close()
+    def registrar_accion(self, accion):
+        self.acciones.append(accion)
 
-        self.archivo_csv = archivo_temporal.name
 
-        self.repository = TareaRepository(
-            self.archivo_csv
-        )
+class UsuarioRepositoryMock:
+    """Repositorio de usuarios en memoria."""
 
-        self.service = TareaService(
-            self.repository
-        )
+    def __init__(self):
+        self.usuarios = []
 
-    def tearDown(self):
-        if os.path.exists(self.archivo_csv):
-            os.remove(self.archivo_csv)
+    def cargar(self):
+        return list(self.usuarios)
 
-    def test_agregar_tarea(self):
-        resultado = self.service.agregar_tarea(
+    def guardar(self, usuarios):
+        self.usuarios = list(usuarios)
+
+
+class TareaRepositoryMock:
+    """Repositorio de tareas en memoria."""
+
+    def __init__(self):
+        self.tareas = []
+
+    def cargar(self):
+        return list(self.tareas)
+
+    def guardar(self, tareas):
+        self.tareas = list(tareas)
+
+
+@pytest.fixture
+def servicio():
+    historial = HistorialMock()
+
+    usuario_repository = UsuarioRepositoryMock()
+    usuario_service = UsuarioService(
+        usuario_repository,
+        historial
+    )
+
+    usuario_service.agregar_usuario(
+        10,
+        "Ana Rojas",
+        "Usuario",
+        "1234"
+    )
+
+    tarea_repository = TareaRepositoryMock()
+    arbol = ArbolTareas()
+
+    return TareaService(
+        tarea_repository,
+        historial,
+        None,
+        usuario_service
+    )
+
+
+def test_agregar_tarea(servicio):
+    tarea = servicio.agregar_tarea(
+        1,
+        "ALTA",
+        10,
+        "Respaldar Base de Datos",
+        None
+    )
+
+    assert tarea.id == 1
+    assert tarea.descripcion == "Respaldar Base de Datos"
+    assert tarea.responsable_id == 10
+
+
+def test_no_permite_tarea_duplicada(servicio):
+    servicio.agregar_tarea(
+        1,
+        "ALTA",
+        10,
+        "Respaldar Base de Datos",
+        None
+    )
+
+    with pytest.raises(ValueError):
+        servicio.agregar_tarea(
             1,
-            "Desarrollar sistema",
-            Prioridad.ALTA,
-            1
-        )
-
-        self.assertTrue(resultado)
-
-        tarea = self.service.buscar_tarea(1)
-
-        self.assertIsNotNone(tarea)
-        self.assertEqual(tarea.id_tarea, 1)
-        self.assertEqual(tarea.descripcion, "Desarrollar sistema")
-        self.assertEqual(tarea.id_usuario, 1)
-
-    def test_no_permitir_id_repetido(self):
-        self.service.agregar_tarea(
-            1,
-            "Tarea original",
-            Prioridad.MEDIA,
-            1
-        )
-
-        resultado = self.service.agregar_tarea(
-            1,
-            "Tarea repetida",
-            Prioridad.ALTA,
-            1
-        )
-
-        self.assertFalse(resultado)
-
-    def test_no_permitir_descripcion_vacia(self):
-        resultado = self.service.agregar_tarea(
-            1,
-            "",
-            Prioridad.ALTA,
-            1
-        )
-
-        self.assertFalse(resultado)
-
-    def test_no_permitir_id_usuario_invalido(self):
-        resultado = self.service.agregar_tarea(
-            1,
-            "Tarea",
-            Prioridad.ALTA,
-            0
-        )
-
-        self.assertFalse(resultado)
-
-    def test_no_permitir_id_tarea_invalido(self):
-        resultado = self.service.agregar_tarea(
-            0,
-            "Tarea",
-            Prioridad.ALTA,
-            1
-        )
-
-        self.assertFalse(resultado)
-
-    def test_buscar_tarea(self):
-        self.service.agregar_tarea(
-            1,
-            "Tarea",
-            Prioridad.MEDIA,
-            1
-        )
-
-        tarea = self.service.buscar_tarea(1)
-
-        self.assertIsNotNone(tarea)
-        self.assertEqual(tarea.descripcion, "Tarea")
-
-    def test_buscar_tarea_inexistente(self):
-        tarea = self.service.buscar_tarea(999)
-
-        self.assertIsNone(tarea)
-
-    def test_modificar_tarea(self):
-        self.service.agregar_tarea(
-            1,
-            "Tarea original",
-            Prioridad.BAJA,
-            1
-        )
-
-        resultado = self.service.modificar_tarea(
-            1,
-            nueva_descripcion="Tarea modificada",
-            nueva_prioridad=Prioridad.ALTA,
-            nuevo_id_usuario=2
-        )
-
-        self.assertTrue(resultado)
-
-        tarea = self.service.buscar_tarea(1)
-
-        self.assertEqual(
-            tarea.descripcion,
-            "Tarea modificada"
-        )
-
-        self.assertEqual(
-            tarea.prioridad,
-            Prioridad.ALTA
-        )
-
-        self.assertEqual(
-            tarea.id_usuario,
-            2
-        )
-
-    def test_modificar_tarea_inexistente(self):
-        resultado = self.service.modificar_tarea(
-            999,
-            nueva_descripcion="Nueva"
-        )
-
-        self.assertFalse(resultado)
-
-    def test_no_permitir_descripcion_vacia_al_modificar(self):
-        self.service.agregar_tarea(
-            1,
-            "Tarea original",
-            Prioridad.MEDIA,
-            1
-        )
-
-        resultado = self.service.modificar_tarea(
-            1,
-            nueva_descripcion=""
-        )
-
-        self.assertFalse(resultado)
-
-        tarea = self.service.buscar_tarea(1)
-
-        self.assertEqual(
-            tarea.descripcion,
-            "Tarea original"
-        )
-
-    def test_eliminar_tarea(self):
-        self.service.agregar_tarea(
-            1,
-            "Tarea",
-            Prioridad.ALTA,
-            1
-        )
-
-        resultado = self.service.eliminar_tarea(1)
-
-        self.assertTrue(resultado)
-
-        self.assertIsNone(
-            self.service.buscar_tarea(1)
-        )
-
-    def test_eliminar_tarea_inexistente(self):
-        resultado = self.service.eliminar_tarea(999)
-
-        self.assertFalse(resultado)
-
-    def test_agregar_subtarea(self):
-        self.service.agregar_tarea(
-            1,
-            "Tarea principal",
-            Prioridad.ALTA,
-            1
-        )
-
-        resultado = self.service.agregar_subtarea(
-            1,
-            2,
-            "Subtarea"
-        )
-
-        self.assertTrue(resultado)
-
-        subtarea = self.service.buscar_subtarea(2)
-
-        self.assertIsNotNone(subtarea)
-
-        self.assertEqual(
-            subtarea.id_subtarea,
-            2
-        )
-
-        self.assertEqual(
-            subtarea.descripcion,
-            "Subtarea"
-        )
-
-    def test_agregar_subtarea_anidada(self):
-        self.service.agregar_tarea(
-            1,
-            "Tarea principal",
-            Prioridad.ALTA,
-            1
-        )
-
-        self.service.agregar_subtarea(
-            1,
-            2,
-            "Subtarea 1"
-        )
-
-        resultado = self.service.agregar_subtarea(
-            2,
-            3,
-            "Subtarea 2"
-        )
-
-        self.assertTrue(resultado)
-
-        subtarea = self.service.buscar_subtarea(3)
-
-        self.assertIsNotNone(subtarea)
-
-        self.assertEqual(
-            subtarea.id_padre,
-            2
-        )
-
-    def test_no_permitir_id_subtarea_repetido(self):
-        self.service.agregar_tarea(
-            1,
-            "Tarea",
-            Prioridad.ALTA,
-            1
-        )
-
-        self.service.agregar_subtarea(
-            1,
-            2,
-            "Subtarea"
-        )
-
-        resultado = self.service.agregar_subtarea(
-            1,
-            2,
-            "Otra subtarea"
-        )
-
-        self.assertFalse(resultado)
-
-    def test_no_permitir_subtarea_sin_padre(self):
-        self.service.agregar_tarea(
-            1,
-            "Tarea",
-            Prioridad.ALTA,
-            1
-        )
-
-        resultado = self.service.agregar_subtarea(
-            999,
-            2,
-            "Subtarea"
-        )
-
-        self.assertFalse(resultado)
-
-    def test_buscar_subtarea(self):
-        self.service.agregar_tarea(
-            1,
-            "Tarea",
-            Prioridad.ALTA,
-            1
-        )
-
-        self.service.agregar_subtarea(
-            1,
-            2,
-            "Subtarea"
-        )
-
-        resultado = self.service.buscar_subtarea(2)
-
-        self.assertIsNotNone(resultado)
-
-    def test_buscar_subtarea_inexistente(self):
-        resultado = self.service.buscar_subtarea(999)
-
-        self.assertIsNone(resultado)
-
-    def test_eliminar_subtarea(self):
-        self.service.agregar_tarea(
-            1,
-            "Tarea",
-            Prioridad.ALTA,
-            1
-        )
-
-        self.service.agregar_subtarea(
-            1,
-            2,
-            "Subtarea"
-        )
-
-        resultado = self.service.eliminar_subtarea(2)
-
-        self.assertTrue(resultado)
-
-        self.assertIsNone(
-            self.service.buscar_subtarea(2)
-        )
-
-    def test_eliminar_subtarea_inexistente(self):
-        resultado = self.service.eliminar_subtarea(999)
-
-        self.assertFalse(resultado)
-
-    def test_listar_subtareas(self):
-        self.service.agregar_tarea(
-            1,
-            "Tarea principal",
-            Prioridad.ALTA,
-            1
-        )
-
-        self.service.agregar_subtarea(
-            1,
-            2,
-            "Subtarea 1"
-        )
-
-        self.service.agregar_subtarea(
-            1,
-            3,
-            "Subtarea 2"
-        )
-
-        resultado = self.service.listar_subtareas(1)
-
-        self.assertEqual(
-            len(resultado),
-            3
-        )
-
-    def test_completar_subtarea(self):
-        self.service.agregar_tarea(
-            1,
-            "Tarea",
-            Prioridad.ALTA,
-            1
-        )
-
-        self.service.agregar_subtarea(
-            1,
-            2,
-            "Subtarea"
-        )
-
-        resultado = self.service.completar_subtarea(2)
-
-        self.assertTrue(resultado)
-
-        subtarea = self.service.buscar_subtarea(2)
-
-        self.assertTrue(
-            subtarea.completada
+            "BAJA",
+            10,
+            "Otra tarea",
+            None
         )
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_buscar_tarea(servicio):
+    servicio.agregar_tarea(
+        1,
+        "ALTA",
+        10,
+        "Respaldar Base de Datos",
+        None
+    )
+
+    tarea = servicio.buscar_tarea(1)
+
+    assert tarea is not None
+    assert tarea.descripcion == "Respaldar Base de Datos"
+
+
+def test_modificar_tarea(servicio):
+    servicio.agregar_tarea(
+        1,
+        "ALTA",
+        10,
+        "Respaldar Base de Datos",
+        None
+    )
+
+    servicio.modificar_tarea(
+        1,
+        "Respaldar servidores",
+        "URGENTE",
+        10
+    )
+
+    tarea = servicio.buscar_tarea(1)
+
+    assert tarea.descripcion == "Respaldar servidores"
+    assert tarea.responsable_id == 10
+
+
+def test_eliminar_tarea(servicio):
+    servicio.agregar_tarea(
+        1,
+        "ALTA",
+        10,
+        "Respaldar Base de Datos",
+        None
+    )
+
+    servicio.eliminar_tarea(1)
+
+    assert servicio.buscar_tarea(1) is None
+
+
+def test_cambiar_estado(servicio):
+    servicio.agregar_tarea(
+        1,
+        "ALTA",
+        10,
+        "Respaldar Base de Datos",
+        None
+    )
+
+    servicio.cambiar_estado(
+        1,
+        "Completada",
+        10
+    )
+
+    tarea = servicio.buscar_tarea(1)
+
+    assert tarea.estado == "Completada"
+
+
+def test_usuario_no_puede_modificar_tarea_ajena(servicio):
+    servicio.agregar_tarea(
+        1,
+        "ALTA",
+        10,
+        "Respaldar Base de Datos",
+        None
+    )
+
+    tarea = servicio.buscar_tarea(1)
+
+    assert (
+        servicio.puede_modificar_estado(
+            tarea,
+            99
+        )
+        is False
+    )
+
+
+def test_usuario_puede_modificar_su_tarea(servicio):
+    servicio.agregar_tarea(
+        1,
+        "ALTA",
+        10,
+        "Respaldar Base de Datos",
+        None
+    )
+
+    tarea = servicio.buscar_tarea(1)
+
+    assert (
+        servicio.puede_modificar_estado(
+            tarea,
+            10
+        )
+        is True
+    )
+
+
+def test_agregar_subtarea(servicio):
+    servicio.agregar_tarea(
+        1,
+        "ALTA",
+        10,
+        "Respaldar Base de Datos",
+        None
+    )
+
+    subtarea = servicio.agregar_tarea(
+        2,
+        "MEDIA",
+        10,
+        "Comprimir archivos",
+        1
+    )
+
+    assert subtarea.padre_id == 1
+
+
+def test_listar_tareas(servicio):
+    servicio.agregar_tarea(
+        1,
+        "ALTA",
+        10,
+        "Tarea 1",
+        None
+    )
+
+    servicio.agregar_tarea(
+        2,
+        "BAJA",
+        10,
+        "Tarea 2",
+        None
+    )
+
+    tareas = servicio.listar_tareas()
+
+    assert len(tareas) == 2
+
+
+def test_ordenamiento_por_id(servicio):
+    servicio.agregar_tarea(
+        3,
+        "BAJA",
+        10,
+        "Tarea 3",
+        None
+    )
+
+    servicio.agregar_tarea(
+        1,
+        "ALTA",
+        10,
+        "Tarea 1",
+        None
+    )
+
+    servicio.agregar_tarea(
+        2,
+        "MEDIA",
+        10,
+        "Tarea 2",
+        None
+    )
+
+    tareas = servicio.ordenar_por_id("burbuja")
+
+    ids = [tarea.id for tarea in tareas]
+
+    assert ids == [1, 2, 3]

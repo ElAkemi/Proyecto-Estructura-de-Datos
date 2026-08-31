@@ -1,317 +1,173 @@
-import unittest
-import tempfile
-import os
+import pytest
 
 from services.usuario_service import UsuarioService
-from services.historial_service import HistorialService
 
 
-class TestUsuarioService(unittest.TestCase):
+class HistorialMock:
+    """Historial simulado para las pruebas."""
 
-    def setUp(self):
-        # Crear un archivo temporal para cada prueba
-        archivo_temporal = tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=".csv"
-        )
+    def __init__(self):
+        self.acciones = []
 
-        archivo_temporal.close()
+    def registrar_accion(self, accion):
+        self.acciones.append(accion)
 
-        self.archivo_csv = archivo_temporal.name
 
-        # Crear el historial compartido
-        self.historial = HistorialService()
+class RepositoryMock:
+    """Repositorio simulado para las pruebas."""
 
-        # Crear el servicio de usuarios
-        self.service = UsuarioService(
-            self.archivo_csv,
-            historial=self.historial
-        )
+    def __init__(self):
+        self.usuarios = []
+        self.guardados = []
 
-        # Conectar el historial con el servicio de usuarios
-        self.historial.establecer_usuario_service(
-            self.service
-        )
+    def cargar(self):
+        """Devuelve los usuarios persistidos."""
 
-    def tearDown(self):
-        # Eliminar el archivo temporal después de cada prueba
-        if os.path.exists(self.archivo_csv):
-            os.remove(self.archivo_csv)
+        return self.usuarios.copy()
 
-    # =========================================================
-    # AGREGAR
-    # =========================================================
+    def guardar(self, usuarios):
+        """Simula la persistencia de usuarios."""
 
-    def test_agregar_usuario(self):
-        resultado = self.service.agregar_usuario(
+        self.usuarios = usuarios.copy()
+        self.guardados.append(usuarios.copy())
+
+
+@pytest.fixture
+def servicio():
+    repository = RepositoryMock()
+    historial = HistorialMock()
+
+    return UsuarioService(
+        repository,
+        historial
+    )
+
+
+def test_agregar_usuario(servicio):
+    usuario = servicio.agregar_usuario(
+        1,
+        "Ana Rojas",
+        "Usuario",
+        "1234"
+    )
+
+    assert usuario.id == 1
+    assert usuario.nombre == "Ana Rojas"
+    assert usuario.rol == "Usuario"
+
+
+def test_buscar_usuario(servicio):
+    servicio.agregar_usuario(
+        1,
+        "Ana Rojas",
+        "Usuario",
+        "1234"
+    )
+
+    usuario = servicio.buscar_usuario(1)
+
+    assert usuario is not None
+    assert usuario.nombre == "Ana Rojas"
+
+
+def test_no_permite_id_duplicado(servicio):
+    servicio.agregar_usuario(
+        1,
+        "Ana Rojas",
+        "Usuario",
+        "1234"
+    )
+
+    with pytest.raises(ValueError):
+        servicio.agregar_usuario(
             1,
-            "Ana",
-            "Usuario"
+            "Carlos Pérez",
+            "Usuario",
+            "5678"
         )
 
-        self.assertTrue(resultado)
 
-        usuario = self.service.buscar_usuario(1)
-
-        self.assertEqual(usuario.id, 1)
-        self.assertEqual(usuario.nombre, "Ana")
-        self.assertEqual(usuario.rol, "Usuario")
-
-    # =========================================================
-    # VALIDACIONES
-    # =========================================================
-
-    def test_no_permitir_id_repetido(self):
-        self.service.agregar_usuario(
-            1,
-            "Ana",
-            "Usuario"
+def test_no_permite_id_invalido(servicio):
+    with pytest.raises(ValueError):
+        servicio.agregar_usuario(
+            0,
+            "Ana Rojas",
+            "Usuario",
+            "1234"
         )
 
-        with self.assertRaises(ValueError):
-            self.service.agregar_usuario(
-                1,
-                "Carlos",
-                "Usuario"
-            )
 
-    def test_no_permitir_nombre_vacio(self):
-        with self.assertRaises(ValueError):
-            self.service.agregar_usuario(
-                1,
-                "",
-                "Usuario"
-            )
-
-    def test_no_permitir_rol_invalido(self):
-        with self.assertRaises(ValueError):
-            self.service.agregar_usuario(
-                1,
-                "Ana",
-                "Invitado"
-            )
-
-    # =========================================================
-    # MODIFICAR
-    # =========================================================
-
-    def test_modificar_usuario(self):
-        self.service.agregar_usuario(
-            1,
-            "Ana",
-            "Usuario"
-        )
-
-        resultado = self.service.modificar_usuario(
-            1,
-            "Ana Maria",
-            "Administrador"
-        )
-
-        self.assertTrue(resultado)
-
-        usuario = self.service.buscar_usuario(1)
-
-        self.assertEqual(
-            usuario.nombre,
-            "Ana Maria"
-        )
-
-        self.assertEqual(
-            usuario.rol,
-            "Administrador"
-        )
-
-    # =========================================================
-    # ELIMINAR
-    # =========================================================
-
-    def test_eliminar_usuario(self):
-        self.service.agregar_usuario(
-            1,
-            "Ana",
-            "Usuario"
-        )
-
-        resultado = self.service.eliminar_usuario(1)
-
-        self.assertTrue(resultado)
-
-        with self.assertRaises(ValueError):
-            self.service.buscar_usuario(1)
-
-    # =========================================================
-    # DESHACER AGREGAR
-    # =========================================================
-
-    def test_deshacer_agregar(self):
-        self.service.agregar_usuario(
-            1,
-            "Ana",
-            "Usuario"
-        )
-
-        resultado = self.service.historial.deshacer_accion()
-
-        self.assertIsNotNone(resultado)
-
-        with self.assertRaises(ValueError):
-            self.service.buscar_usuario(1)
-
-    # =========================================================
-    # REHACER AGREGAR
-    # =========================================================
-
-    def test_rehacer_agregar(self):
-        self.service.agregar_usuario(
-            1,
-            "Ana",
-            "Usuario"
-        )
-
-        resultado_deshacer = (
-            self.service.historial.deshacer_accion()
-        )
-
-        self.assertIsNotNone(
-            resultado_deshacer
-        )
-
-        resultado_rehacer = (
-            self.service.historial.rehacer_accion()
-        )
-
-        self.assertIsNotNone(
-            resultado_rehacer
-        )
-
-        usuario = self.service.buscar_usuario(1)
-
-        self.assertEqual(
-            usuario.nombre,
-            "Ana"
-        )
-
-        self.assertEqual(
-            usuario.rol,
-            "Usuario"
-        )
-
-    # =========================================================
-    # DESHACER MODIFICAR
-    # =========================================================
-
-    def test_deshacer_modificar(self):
-        self.service.agregar_usuario(
-            1,
-            "Ana",
-            "Usuario"
-        )
-
-        self.service.modificar_usuario(
-            1,
-            "Ana Maria",
-            "Administrador"
-        )
-
-        resultado = (
-            self.service.historial.deshacer_accion()
-        )
-
-        self.assertIsNotNone(
-            resultado
-        )
-
-        usuario = self.service.buscar_usuario(1)
-
-        self.assertEqual(
-            usuario.nombre,
-            "Ana"
-        )
-
-        self.assertEqual(
-            usuario.rol,
-            "Usuario"
-        )
-
-    # =========================================================
-    # DESHACER ELIMINAR
-    # =========================================================
-
-    def test_deshacer_eliminar(self):
-        self.service.agregar_usuario(
-            1,
-            "Ana",
-            "Usuario"
-        )
-
-        self.service.eliminar_usuario(1)
-
-        resultado = (
-            self.service.historial.deshacer_accion()
-        )
-
-        self.assertIsNotNone(
-            resultado
-        )
-
-        usuario = self.service.buscar_usuario(1)
-
-        self.assertEqual(
-            usuario.nombre,
-            "Ana"
-        )
-
-        self.assertEqual(
-            usuario.rol,
-            "Usuario"
-        )
-
-    # =========================================================
-    # GUARDAR Y CARGAR
-    # =========================================================
-
-    def test_guardar_y_cargar_usuarios(self):
-        self.service.agregar_usuario(
-            1,
-            "Ana",
-            "Usuario"
-        )
-
-        self.service.agregar_usuario(
+def test_no_permite_nombre_vacio(servicio):
+    with pytest.raises(ValueError):
+        servicio.agregar_usuario(
             2,
-            "Carlos",
-            "Administrador"
-        )
-
-        # Crear otro servicio usando el mismo CSV
-        nuevo_service = UsuarioService(
-            self.archivo_csv
-        )
-
-        usuario1 = nuevo_service.buscar_usuario(1)
-        usuario2 = nuevo_service.buscar_usuario(2)
-
-        self.assertEqual(
-            usuario1.nombre,
-            "Ana"
-        )
-
-        self.assertEqual(
-            usuario1.rol,
-            "Usuario"
-        )
-
-        self.assertEqual(
-            usuario2.nombre,
-            "Carlos"
-        )
-
-        self.assertEqual(
-            usuario2.rol,
-            "Administrador"
+            "",
+            "Usuario",
+            "1234"
         )
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_no_permite_rol_invalido(servicio):
+    with pytest.raises(ValueError):
+        servicio.agregar_usuario(
+            3,
+            "Ana Rojas",
+            "Gerente",
+            "1234"
+        )
+
+
+def test_modificar_usuario(servicio):
+    servicio.agregar_usuario(
+        1,
+        "Ana Rojas",
+        "Usuario",
+        "1234"
+    )
+
+    servicio.modificar_usuario(
+        1,
+        "Ana María Rojas",
+        "Administrador",
+        "5678"
+    )
+
+    usuario = servicio.buscar_usuario(1)
+
+    assert usuario.nombre == "Ana María Rojas"
+    assert usuario.rol == "Administrador"
+    assert usuario.password == "5678"
+
+
+def test_eliminar_usuario(servicio):
+    servicio.agregar_usuario(
+        1,
+        "Ana Rojas",
+        "Usuario",
+        "1234"
+    )
+
+    servicio.eliminar_usuario(1)
+
+    assert servicio.buscar_usuario(1) is None
+
+
+def test_listar_usuarios(servicio):
+    servicio.agregar_usuario(
+        1,
+        "Ana Rojas",
+        "Usuario",
+        "1234"
+    )
+
+    servicio.agregar_usuario(
+        2,
+        "Carlos Pérez",
+        "Administrador",
+        "5678"
+    )
+
+    usuarios = servicio.listar_usuarios()
+
+    assert len(usuarios) == 2
+

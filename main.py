@@ -33,7 +33,7 @@ def leer_entero(mensaje):
         try:
             return int(input(mensaje).strip())
         except ValueError:
-            print("❌ Error: debe ingresar un número entero.")
+            print(" Error: debe ingresar un número entero.")
 
 
 def leer_entero_positivo(mensaje):
@@ -45,7 +45,7 @@ def leer_entero_positivo(mensaje):
         if numero > 0:
             return numero
 
-        print("❌ El número debe ser positivo.")
+        print(" El número debe ser positivo.")
 
 
 def leer_texto(mensaje):
@@ -57,7 +57,7 @@ def leer_texto(mensaje):
         if texto:
             return texto
 
-        print("❌ El campo no puede estar vacío.")
+        print(" El campo no puede estar vacío.")
 
 
 def pausar():
@@ -117,7 +117,7 @@ def iniciar_sesion(sistema):
                 password
             )
         except ValueError as error:
-            print(f"❌ {error}")
+            print(f" {error}")
             continue
 
         if usuario is not None:
@@ -128,7 +128,7 @@ def iniciar_sesion(sistema):
             return usuario
 
         print(
-            "\n❌ Usuario o contraseña incorrectos."
+            "\n Usuario o contraseña incorrectos."
         )
 
         opcion = input(
@@ -181,10 +181,10 @@ def menu_usuarios(sistema):
                 return
 
             else:
-                print("❌ Opción inválida.")
+                print(" Opción inválida.")
 
         except (ValueError, PermissionError) as error:
-            print(f"\n❌ {error}")
+            print(f"\n {error}")
 
         pausar()
 
@@ -219,7 +219,7 @@ def agregar_usuario(sistema):
             rol = "Usuario"
             break
 
-        print("❌ Rol inválido.")
+        print(" Rol inválido.")
 
     password = getpass(
         "Contraseña: "
@@ -238,7 +238,7 @@ def agregar_usuario(sistema):
     )
 
     print(
-        f"\n✅ Usuario {usuario.id} agregado correctamente."
+        f"\n Usuario {usuario.id} agregado correctamente."
     )
 
 
@@ -283,7 +283,7 @@ def modificar_usuario(sistema):
             rol = "Usuario"
             break
 
-        print("❌ Rol inválido.")
+        print(" Rol inválido.")
 
     cambiar_password = input(
         "¿Desea cambiar la contraseña? (s/n): "
@@ -308,7 +308,7 @@ def modificar_usuario(sistema):
         password
     )
 
-    print("\n✅ Usuario actualizado correctamente.")
+    print("\n Usuario actualizado correctamente.")
 
 
 def eliminar_usuario(sistema):
@@ -343,7 +343,7 @@ def eliminar_usuario(sistema):
         id_usuario
     )
 
-    print("\n✅ Usuario eliminado correctamente.")
+    print("\n Usuario eliminado correctamente.")
 
 
 def listar_usuarios(sistema):
@@ -375,7 +375,7 @@ def buscar_usuario(sistema):
     )
 
     if usuario is None:
-        print("\n❌ Usuario no encontrado.")
+        print("\n Usuario no encontrado.")
         return
 
     mostrar_usuario(usuario)
@@ -449,14 +449,14 @@ def menu_tareas(sistema, usuario):
                 return
 
             else:
-                print("❌ Opción inválida.")
+                print(" Opción inválida.")
 
         except (
             ValueError,
             PermissionError,
             AttributeError
         ) as error:
-            print(f"\n❌ {error}")
+            print(f"\n {error}")
 
         pausar()
 
@@ -485,7 +485,7 @@ def seleccionar_prioridad():
         if opcion in prioridades:
             return prioridades[opcion]
 
-        print("❌ Prioridad inválida.")
+        print(" Prioridad inválida.")
 
 
 def seleccionar_responsable(sistema):
@@ -504,7 +504,7 @@ def seleccionar_responsable(sistema):
             return responsable_id
 
         print(
-            "❌ No existe un usuario con ese ID."
+            " No existe un usuario con ese ID."
         )
 
 
@@ -555,7 +555,7 @@ def agregar_tarea(sistema):
     )
 
     print(
-        f"\n✅ Tarea {tarea.id} creada correctamente."
+        f"\n Tarea {tarea.id} creada correctamente."
     )
 
 
@@ -596,7 +596,7 @@ def modificar_tarea(sistema):
         responsable_id
     )
 
-    print("\n✅ Tarea actualizada correctamente.")
+    print("\n Tarea actualizada correctamente.")
 
 
 def eliminar_tarea(sistema):
@@ -631,7 +631,7 @@ def eliminar_tarea(sistema):
         id_tarea
     )
 
-    print("\n✅ Tarea eliminada correctamente.")
+    print("\n Tarea eliminada correctamente.")
 
 
 def listar_tareas_pendientes(sistema):
@@ -663,7 +663,7 @@ def buscar_tarea(sistema):
     )
 
     if tarea is None:
-        print("\n❌ Tarea no encontrada.")
+        print("\n Tarea no encontrada.")
         return
 
     mostrar_tarea(tarea)
@@ -710,7 +710,7 @@ def agregar_subtarea(sistema):
     )
 
     print(
-        f"\n✅ Subtarea {tarea.id} agregada."
+        f"\n Subtarea {tarea.id} agregada."
     )
 
 
@@ -756,7 +756,7 @@ def procesar_tarea(sistema, usuario):
         print("No hay tareas pendientes.")
         return
 
-    print("\n✅ Tarea seleccionada para ejecución:")
+    print("\n Tarea seleccionada para ejecución:")
     mostrar_tarea(tarea)
 
 
@@ -776,7 +776,7 @@ def aplicar_sla(sistema, usuario):
         return
 
     print(
-        f"\n⚠️ Se escalaron "
+        f"\n Se escalaron "
         f"{len(escaladas)} tarea(s):"
     )
 
@@ -811,7 +811,7 @@ def seleccionar_estado():
         if opcion in estados:
             return estados[opcion]
 
-        print("❌ Estado inválido.")
+        print(" Estado inválido.")
 
 
 def cambiar_estado(sistema, usuario):
@@ -850,7 +850,7 @@ def cambiar_estado(sistema, usuario):
     )
 
     print(
-        "\n✅ Estado actualizado correctamente."
+        "\n Estado actualizado correctamente."
     )
 
 
@@ -883,7 +883,7 @@ def menu_ordenamiento(sistema):
         return
 
     if opcion not in algoritmos:
-        print("❌ Opción inválida.")
+        print(" Opción inválida.")
         return
 
     algoritmo = algoritmos[opcion]
@@ -911,7 +911,7 @@ def menu_ordenamiento(sistema):
             )
 
         else:
-            print("❌ Criterio inválido.")
+            print(" Criterio inválido.")
             return
 
         print(
@@ -926,7 +926,7 @@ def menu_ordenamiento(sistema):
             )
 
     except ValueError as error:
-        print(f"❌ {error}")
+        print(f" {error}")
 
 
 # ============================================================
@@ -981,14 +981,14 @@ def menu_usuario(sistema, usuario):
                 return
 
             else:
-                print("❌ Opción inválida.")
+                print(" Opción inválida.")
 
         except (
             ValueError,
             PermissionError,
             AttributeError
         ) as error:
-            print(f"\n❌ {error}")
+            print(f"\n {error}")
 
         pausar()
 
@@ -1063,14 +1063,14 @@ def menu_administrador(sistema, usuario):
                 return
 
             else:
-                print("❌ Opción inválida.")
+                print(" Opción inválida.")
 
         except (
             ValueError,
             PermissionError,
             AttributeError
         ) as error:
-            print(f"\n❌ {error}")
+            print(f"\n {error}")
 
         pausar()
 
@@ -1082,12 +1082,12 @@ def deshacer(sistema, usuario):
 
     if accion is None:
         print(
-            "\nℹ️ No hay acciones para deshacer."
+            "\n No hay acciones para deshacer."
         )
         return
 
     print(
-        "\n↩️ Acción deshecha correctamente:"
+        "\n Acción deshecha correctamente:"
     )
 
     print(
@@ -1106,12 +1106,12 @@ def rehacer(sistema, usuario):
 
     if accion is None:
         print(
-            "\nℹ️ No hay acciones para rehacer."
+            "\n No hay acciones para rehacer."
         )
         return
 
     print(
-        "\n↪️ Acción rehecha correctamente:"
+        "\n Acción rehecha correctamente:"
     )
 
     print(
@@ -1158,7 +1158,7 @@ def main():
 
     except Exception as error:
         print(
-            "\n❌ Error al iniciar el sistema:"
+            "\n Error al iniciar el sistema:"
         )
         print(error)
         return
@@ -1169,7 +1169,7 @@ def main():
 
         if usuario is None:
             print(
-                "\n👋 Programa finalizado."
+                "\n Programa finalizado."
             )
             break
 
@@ -1186,7 +1186,7 @@ def main():
             )
 
         print(
-            "\n🔒 Sesión cerrada."
+            "\n Sesión cerrada."
         )
 
 
