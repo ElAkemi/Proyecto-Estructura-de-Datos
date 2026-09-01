@@ -2,3 +2,4 @@ id,prioridad,responsable_id,descripcion,estado,padre_id,ciclos_espera
 1,ALTA,2,Programar el main,Completada,,0
 2,MEDIA,2,programar csv,Completada,,1
 30,MEDIA,2,No se jaja,En ejecución,,1
+5,ALTA,2,Comprar cafe,Pendiente,,0

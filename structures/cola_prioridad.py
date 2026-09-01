@@ -1,29 +1,54 @@
+from structures.nodo_cola import NodoCola
+
+
 class ColaPrioridad:
     """
-    Cola de prioridad para tareas urgentes.
+    Cola de prioridad para tareas urgentes, implementada con
+    nodos enlazados (sin usar listas de Python como
+    estructura de almacenamiento).
 
-    Las tareas con mayor prioridad numérica
-    se procesan primero.
+    Las tareas con mayor prioridad numérica se ubican
+    más cerca del frente y se procesan primero. Entre
+    tareas de igual prioridad se respeta el orden de
+    llegada (la nueva se inserta después de las existentes
+    con la misma prioridad).
     """
 
     def __init__(self):
-        self.elementos = []
+        self.frente_nodo = None
+        self.tamano = 0
 
     def encolar(self, tarea):
-        """
-        Agrega una tarea y mantiene la cola ordenada
-        de mayor a menor prioridad.
-        """
+        """Inserta una tarea manteniendo el orden por prioridad."""
 
-        self.elementos.append(tarea)
+        nuevo_nodo = NodoCola(tarea)
+        prioridad_nueva = int(tarea.prioridad)
 
-        self.elementos.sort(
-            key=lambda tarea: -int(tarea.prioridad)
-        )
+        if (
+            self.frente_nodo is None
+            or int(self.frente_nodo.dato.prioridad) < prioridad_nueva
+        ):
+            nuevo_nodo.siguiente = self.frente_nodo
+            self.frente_nodo = nuevo_nodo
+            self.tamano += 1
+            return
+
+        actual = self.frente_nodo
+
+        while (
+            actual.siguiente is not None
+            and int(actual.siguiente.dato.prioridad) >= prioridad_nueva
+        ):
+            actual = actual.siguiente
+
+        nuevo_nodo.siguiente = actual.siguiente
+        actual.siguiente = nuevo_nodo
+
+        self.tamano += 1
 
     def desencolar(self):
         """
-        Retira la tarea con mayor prioridad.
+        Retira la tarea con mayor prioridad (el frente).
 
         Retorna:
             La tarea o None si está vacía.
@@ -32,7 +57,12 @@ class ColaPrioridad:
         if self.esta_vacia():
             return None
 
-        return self.elementos.pop(0)
+        nodo = self.frente_nodo
+        self.frente_nodo = nodo.siguiente
+
+        self.tamano -= 1
+
+        return nodo.dato
 
     def frente(self):
         """Devuelve la tarea con mayor prioridad sin retirarla."""
@@ -40,34 +70,56 @@ class ColaPrioridad:
         if self.esta_vacia():
             return None
 
-        return self.elementos[0]
+        return self.frente_nodo.dato
 
     def esta_vacia(self):
         """Indica si la cola está vacía."""
 
-        return len(self.elementos) == 0
+        return self.frente_nodo is None
 
     def remover_por_id(self, tarea_id):
         """
-        Busca y elimina una tarea por ID.
+        Busca y elimina una tarea por ID recorriendo
+        los nodos enlazados.
 
         Retorna:
             La tarea eliminada o None.
         """
 
-        for indice, tarea in enumerate(self.elementos):
+        actual = self.frente_nodo
+        anterior = None
 
-            if tarea.id == tarea_id:
-                return self.elementos.pop(indice)
+        while actual is not None:
+
+            if actual.dato.id == tarea_id:
+
+                if anterior is None:
+                    self.frente_nodo = actual.siguiente
+                else:
+                    anterior.siguiente = actual.siguiente
+
+                self.tamano -= 1
+
+                return actual.dato
+
+            anterior = actual
+            actual = actual.siguiente
 
         return None
 
     def listar(self):
         """Devuelve las tareas actuales de la cola."""
 
-        return list(self.elementos)
+        elementos = []
+        actual = self.frente_nodo
+
+        while actual is not None:
+            elementos.append(actual.dato)
+            actual = actual.siguiente
+
+        return elementos
 
     def __len__(self):
         """Devuelve la cantidad de tareas."""
 
-        return len(self.elementos)
+        return self.tamano
